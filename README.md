@@ -4,7 +4,6 @@ A calendar / scheduler core implemented in **C++**, using a **Red-Black Tree wit
 
 This project reimplements common calendar operations (add, remove, reschedule, search, duplicate events), but focuses on **data structure design and performance guarantees** rather than UI or full calendar integrations.
 
----
 
 ## Motivation
 
@@ -18,7 +17,6 @@ This project explores how a **Red-Black Tree–based interval scheduler** can:
 
 The goal of this project is not to reinvent calendar features, but to study how **balanced trees and interval augmentation** can be applied to a real-world scheduling problem.
 
----
 
 ## Core Features
 
@@ -28,7 +26,6 @@ The goal of this project is not to reinvent calendar features, but to study how 
 - Duplicate events (with optional time shifting)
 - Guaranteed logarithmic-time operations
 
----
 
 ## Event Model
 
@@ -45,7 +42,6 @@ Time intervals are treated as **half-open intervals**:
 
 This simplifies boundary handling and avoids ambiguity when events touch but do not overlap.
 
----
 
 ## Data Structure Design
 
@@ -68,7 +64,6 @@ Each node maintains an additional field:
 
 This augmentation allows efficient detection of overlapping intervals and enables fast scheduling queries without scanning all events.
 
----
 
 ## Supported Operations
 
@@ -83,7 +78,6 @@ This augmentation allows efficient detection of overlapping intervals and enable
 
 (`k` is the number of returned events.)
 
----
 
 ## Duplicate Events
 
@@ -94,7 +88,6 @@ The scheduler supports duplicating events:
 
 This feature serves as a foundation for recurring events.
 
----
 
 ## Project Scope
 
@@ -110,7 +103,6 @@ What it **is not**:
 - a UI-heavy product
 - a direct integration with external calendar services
 
----
 
 ## Possible Extensions
 
@@ -120,7 +112,6 @@ What it **is not**:
 - REST API wrapper for frontend integration
 - CLI or lightweight visualization interface
 
----
 
 ## Why Red-Black Trees?
 
@@ -129,7 +120,6 @@ Compared to a linked-list-based scheduler, this approach:
 - provides predictable worst-case performance
 - demonstrates how classic balanced trees can be adapted for interval-based problems
 
----
 
 ## Build & Usage
 
