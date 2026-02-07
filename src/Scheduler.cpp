@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+using namespace std;
 
 namespace rbt {
 
@@ -41,13 +42,33 @@ Scheduler::~Scheduler() {
 /* ========= basic CRUD ========= */
 
 EventId Scheduler::addEvent(const Event& e) {
-  // TODO:
-  // 1. Generate a unique EventId
-  // 2. Copy event
-  // 3. Insert into underlying structure
-  // 4. Return id
+  // validate time span
+  if(e.when.end <= e.when.start) {
+    return 0; // invalid time span, return 0 as error code (or throw exception)
+  }
 
-  return 0; // placeholder
+  // check conflict
+  if(hasConflict(e.when)) {
+    return 0;
+  }
+  
+  // generate new id
+  EventId newId = impl_->nextId;
+  impl_->nextId++;
+
+  //copy even and assign id
+  EventId copy = e;
+  copy.id = newId;
+
+  // insert
+  impl_->events.push_back(copy);
+
+  // sort by start time
+  sort(impl_->events.begin(), impl_->events.end(), [](const Event& a, const Event& b) {
+    return a.when.start < b.when.start;
+  });
+
+  return newId; // placeholder
 }
 
 bool Scheduler::removeEvent(EventId id) {
