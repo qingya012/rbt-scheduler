@@ -28,6 +28,9 @@ struct Scheduler::Impl {
 Scheduler::Scheduler()
   : impl_(new Impl()) {
   // TODO: 初始化需要的状态
+  Scheduler s;
+  EventId id = s.addEvent(e);
+  auto ev = s.getEvent(id);
 }
 
 Scheduler::~Scheduler() {
