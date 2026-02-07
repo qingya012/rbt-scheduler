@@ -15,7 +15,7 @@ struct Scheduler::Impl {
   // 方案 A（先跑通）：std::vector<Event>
   // 方案 B（目标）：红黑树，key = DateTime / EventId
   //
-  // std::vector<Event> events;
+  std::vector<Event> events;
   
   EventId nextId{1};
 
@@ -55,6 +55,9 @@ bool Scheduler::removeEvent(EventId id) {
   // 1. Find id in underlying structure
   // 2. Delete
   // 3. Return whether successful
+
+  // validate time span
+
 
   return false;
 }
@@ -123,11 +126,19 @@ Scheduler::duplicateEvent(EventId id, const DateTime& newStart) {
   return std::nullopt;
 }
 
+// check if a candidate time span conflicts with existing events
 bool Scheduler::hasConflict(const TimeSpan& candidate) const {
-  // TODO:
-  // 1. Iterate all existing events
-  // 2. Check if time ranges overlap
-  // 3. Return true if any overlap found
+  // validate candidate itself
+  if(candidate.end <= candidate.start) {
+    return true; 
+  }
+
+  // loop though events and check for overlap
+  for(const auto& e: impl_->events) {
+    if(!(candidate.end <= e.start || candidate.start >= e.end)) {
+      return true; // found overlapping event
+    }
+  }
 
   return false;
 }
