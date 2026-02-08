@@ -1,132 +1,130 @@
-# Red-Black Tree Scheduler (C++)
+# Weekly Event Scheduler (C++)
 
-A calendar / scheduler core implemented in **C++**, using a **Red-Black Tree with interval augmentation** to efficiently manage time-based events.
+A **weekly event scheduler core** implemented in **C++**, built around a **Red-Black Tree with interval augmentation**.
 
-This project reimplements common calendar operations (add, remove, reschedule, search, duplicate events), but focuses on **data structure design and performance guarantees** rather than UI or full calendar integrations.
+This project focuses on the **core scheduling logic**—event ordering, conflict detection, rescheduling, and time-slot queries—while intentionally staying independent of any UI or calendar platform.  
+The scheduler is designed as a reusable engine that could later be wrapped by a CLI, UI, or calendar plugin, without modifying its core logic.
+
 
 
 ## Motivation
 
-Many basic calendar or scheduler implementations rely on linear data structures (e.g. linked lists), which makes conflict detection and scheduling queries inefficient.
+Many scheduler or calendar implementations rely on linear data structures, which makes conflict detection and scheduling queries inefficient and hard to scale conceptually.
 
-This project explores how a **Red-Black Tree–based interval scheduler** can:
-- maintain events in sorted order by time
-- detect overlapping events efficiently
-- support fast rescheduling and range queries
-- act as a reusable scheduling core independent of any UI
+This project explores how a **balanced tree–based interval scheduler** can be used to manage weekly events with:
+- predictable worst-case performance
+- explicit conflict awareness
+- clean separation between core logic and external interfaces
 
-The goal of this project is not to reinvent calendar features, but to study how **balanced trees and interval augmentation** can be applied to a real-world scheduling problem.
+Rather than building a full calendar product, this project treats scheduling as a **data-structure and systems design problem**.
+
+
+
+## Scope
+
+The scheduler operates within a **single weekly time window**:
+- Time range: one week (e.g. Monday 00:00 → Sunday 24:00)
+- Time granularity: minutes
+- Single user, no persistence across weeks
+
+This constrained scope keeps the system predictable and allows the core logic to remain clean and testable.
+
 
 
 ## Core Features
 
-- Add, remove, and reschedule events
-- Fast conflict detection for overlapping time intervals
-- Search for events by time or time range
-- Duplicate events (with optional time shifting)
-- Guaranteed logarithmic-time operations
+- Add, remove, and reschedule weekly events
+- Detect overlapping events efficiently
+- Search events by time or time range
+- Duplicate weekly events with conflict awareness
+- Suggest available time slots given a desired duration
+
+All operations are implemented with clear performance guarantees.
+
 
 
 ## Event Model
 
 Each event contains:
 - `id` (unique identifier)
-- `startTime`
-- `endTime`
+- `startTime` and `endTime` (minutes relative to the start of the week)
 - `title`
-- optional metadata (e.g. tags, priority)
+- optional metadata (e.g. tags or priority)
 
 Time intervals are treated as **half-open intervals**:
 
 `[startTime, endTime)`
 
-This simplifies boundary handling and avoids ambiguity when events touch but do not overlap.
+
+This avoids ambiguity when events touch but do not overlap.
+
 
 
 ## Data Structure Design
 
 ### Red-Black Tree
 
-Events are stored in a Red-Black Tree ordered by the composite key:
+Events are stored in a Red-Black Tree ordered by a composite key:
 
-`[startTime, id)`
+`（startTime, id)`
+
 
 This ensures:
 - total ordering of events
-- support for multiple events starting at the same time
+- support for multiple events with identical start times
 - `O(log n)` insertion, deletion, and search
 
 ### Interval Augmentation
 
-Each node maintains an additional field:
+Each tree node maintains an additional field:
 
 `maxEnd = maximum endTime within its subtree`
 
-This augmentation allows efficient detection of overlapping intervals and enables fast scheduling queries without scanning all events.
+
+This augmentation enables efficient overlap detection and interval queries without scanning all events.
+
 
 
 ## Supported Operations
 
 | Operation | Description | Time Complexity |
 |--------|------------|----------------|
-| Add Event | Insert a new event | `O(log n)` |
+| Add Event | Insert a new weekly event | `O(log n)` |
 | Remove Event | Delete an event by ID | `O(log n)` |
 | Reschedule Event | Update an event’s time interval | `O(log n)` |
 | Conflict Detection | Check for overlapping events | `O(log n)` |
-| Next Event Search | Find the next event after time `t` | `O(log n)` |
 | Range Query | List events in `[t1, t2)` | `O(log n + k)` |
+| Slot Suggestion | Find available time slots | `O(log n + k)` |
 
 (`k` is the number of returned events.)
 
 
-## Duplicate Events
 
-The scheduler supports duplicating events:
-- exact copies with new IDs
-- time-shifted duplicates (e.g. weekly repetition)
-- conflict-aware duplication (overlaps are detected and handled explicitly)
+## Design Philosophy
 
-This feature serves as a foundation for recurring events.
+- **Core-only**: The scheduler contains no UI, file I/O, or platform-specific logic.
+- **Plugin-friendly**: All inputs and outputs are structured data, making it easy to wrap the core with a CLI, UI, or calendar adapter.
+- **Not locked-in**: The design avoids assumptions about frontend, storage, or calendar providers.
 
+---
 
-## Project Scope
+## What This Project Is / Is Not
 
-This project is intentionally **backend-focused**.
+**This project is:**
+- a backend scheduling engine
+- a Red-Black Tree interval scheduling exercise
+- a foundation for future adapters or plugins
 
-What it **is**:
-- a data-structure-driven scheduling engine
-- a performance-oriented reimplementation of a common system
-- a foundation for future extensions
-
-What it **is not**:
+**This project is not:**
 - a full calendar application
-- a UI-heavy product
+- a UI-focused product
 - a direct integration with external calendar services
+
 
 
 ## Possible Extensions
 
-- Import/export `.ics` calendar files
-- Automatic free-slot suggestions
-- Weekly or monthly recurring events
-- REST API wrapper for frontend integration
-- CLI or lightweight visualization interface
-
-
-## Why Red-Black Trees?
-
-Compared to a linked-list-based scheduler, this approach:
-- avoids linear scans for conflict detection
-- provides predictable worst-case performance
-- demonstrates how classic balanced trees can be adapted for interval-based problems
-
-
-## Build & Usage
-
-```bash
-# example
-make
-./scheduler
-
-`(Exact usage depends on the chosen interface.)`
-
+- CLI wrapper for interactive scheduling
+- Import/export via standard calendar formats (e.g. `.ics`)
+- REST API adapter for frontend integration
+- Multi-week or recurring schedule support
