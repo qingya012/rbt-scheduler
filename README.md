@@ -3,20 +3,8 @@
 A **weekly event scheduler core** implemented in **C++**, built around a **Red-Black Tree with interval augmentation**.
 
 This project focuses on the **core scheduling logic**—event ordering, conflict detection, rescheduling, and time-slot queries—while intentionally staying independent of any UI or calendar platform.  
+
 The scheduler is designed as a reusable engine that could later be wrapped by a CLI, UI, or calendar plugin, without modifying its core logic.
-
-
-
-## Motivation
-
-Many scheduler or calendar implementations rely on linear data structures, which makes conflict detection and scheduling queries inefficient and hard to scale conceptually.
-
-This project explores how a **balanced tree–based interval scheduler** can be used to manage weekly events with:
-- predictable worst-case performance
-- explicit conflict awareness
-- clean separation between core logic and external interfaces
-
-Rather than building a full calendar product, this project treats scheduling as a **data-structure and systems design problem**.
 
 
 
@@ -105,20 +93,6 @@ This augmentation enables efficient overlap detection and interval queries witho
 - **Core-only**: The scheduler contains no UI, file I/O, or platform-specific logic.
 - **Plugin-friendly**: All inputs and outputs are structured data, making it easy to wrap the core with a CLI, UI, or calendar adapter.
 - **Not locked-in**: The design avoids assumptions about frontend, storage, or calendar providers.
-
----
-
-## What This Project Is / Is Not
-
-**This project is:**
-- a backend scheduling engine
-- a Red-Black Tree interval scheduling exercise
-- a foundation for future adapters or plugins
-
-**This project is not:**
-- a full calendar application
-- a UI-focused product
-- a direct integration with external calendar services
 
 
 
