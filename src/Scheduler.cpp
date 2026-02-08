@@ -72,13 +72,13 @@ EventId Scheduler::addEvent(const Event& e) {
 }
 
 bool Scheduler::removeEvent(EventId id) {
-  // TODO:
-  // 1. Find id in underlying structure
-  // 2. Delete
-  // 3. Return whether successful
 
-  // validate time span
-
+  for(auto it = impl_->events.begin(); it != impl_->events.end(); ++it) {
+    if(it->id == id) {
+      impl_->events.erase(it);
+      return true; // found and removed
+    }
+  }
 
   return false;
 }
@@ -89,17 +89,50 @@ bool Scheduler::rescheduleEvent(EventId id, const TimeSpan& newWhen) {
   // 2. Modify TimeSpan
   // 3. If key is time, need to delete then insert
   // 4. Return whether successful
+  for (auto& e : impl_->events) {
+    if (e.id == id) {
+      // validate new time span
+      if(newWhen.end <= newWhen.start) {
+        return false; // invalid time span
+      }
+
+      // check conflict (exclude itself)
+      TimeSpan candidate = newWhen;
+      for(const auto& other : impl_->events) {
+        if(other.id != id && !(candidate.end <= other.when.start || candidate.start >= other.when.end)) {
+          return false; // found conflicting event
+        }
+      }
+
+      // update time span
+      e.when = newWhen;
+
+      // sort by start time
+      sort(impl_->events.begin(), impl_->events.end(), [](const Event& a, const Event& b) {
+        return a.when.start < b.when.start;
+      });
+
+      // delete original event
+      impl_->events.erase(remove_if(impl_->events.begin(), impl_->events.end(),
+                                      [id](const Event& e) { return e.id == id; }),
+                           impl_->events.end());
+
+      return true; // rescheduled successfully
+    }
+  }
 
   return false;
 }
 
 std::optional<Event> Scheduler::getEvent(EventId id) const {
-  // TODO:
-  // 1. Find event
-  // 2. If found, return Event
-  // 3. Otherwise return std::nullopt
 
-  return std::nullopt;
+  for (auto& e : impl_->events) {
+    if (e.id == id) {
+      return e; // found
+    }
+  }
+
+  return nullopt;
 }
 
 /* ========= search ========= */
