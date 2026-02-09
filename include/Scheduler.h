@@ -1,128 +1,280 @@
-#ifndef RBT_SCHEDULER_H
-#define RBT_SCHEDULER_H
+#ifndef SCHEDULER_H
+#define SCHEDULER_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <optional>
-#include <cstdint>
+#include <unordered_map>
 
 namespace rbt {
 
-/* ========= basic types ========= */
+/**
+ * Weekly time constants (minute-based).
+ * A week is represented as minutes from week start (e.g., Monday 00:00).
+ */
+constexpr int DAYS_IN_WEEK = 7;
+constexpr int HOURS_PER_DAY = 24;
+constexpr int MINUTES_PER_HOUR = 60;
+constexpr int MINUTES_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR;
+constexpr int MINUTES_PER_WEEK = DAYS_IN_WEEK * MINUTES_PER_DAY;
 
-struct Date {
-  int year{1970};
-  int month{1}; // 1-12
-  int day{1};   // 1-31
+// Optional display / rounding settings
+constexpr int DEFAULT_MINUTE_QUANTA = 15;
 
-  // basic comparison operators for sorting/searching
-  friend bool operator==(const Date& a, const Date& b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-  friend bool operator<(const Date& a, const Date& b) {
-    if (a.year != b.year) return a.year < b.year;
-    if (a.month != b.month) return a.month < b.month;
-    return a.day < b.day;
-  }
+/**
+ * A time range in minutes relative to the start of the week.
+ * We use half-open intervals: [start, end)
+ */
+struct TimeRange {
+    int start = 0;  // inclusive, 0..MINUTES_PER_WEEK
+    int end   = 0;  // exclusive, 0..MINUTES_PER_WEEK
+
+    bool isValid() const { return 0 <= start && start < end && end <= MINUTES_PER_WEEK; }
 };
 
-struct TimeOfDay {
-  int hour{0};   // 0-23
-  int minute{0}; // 0-59
+/**
+ * Optional extensibility for plugin/UI layers:
+ * - You can later store provider-specific IDs, categories, colors, etc.
+ * - Keep core independent: core treats this as opaque data.
+ */
+using Metadata = std::unordered_map<std::string, std::string>;
 
-  friend bool operator==(const TimeOfDay& a, const TimeOfDay& b) {
-    return a.hour == b.hour && a.minute == b.minute;
-  }
-  friend bool operator<(const TimeOfDay& a, const TimeOfDay& b) {
-    if (a.hour != b.hour) return a.hour < b.hour;
-    return a.minute < b.minute;
-  }
-};
+using EventId = std::int64_t;
 
-struct DateTime {
-  Date date{};
-  TimeOfDay time{};
-
-  friend bool operator==(const DateTime& a, const DateTime& b) {
-    return a.date == b.date && a.time == b.time;
-  }
-  friend bool operator<(const DateTime& a, const DateTime& b) {
-    if (a.date < b.date) return true;
-    if (b.date < a.date) return false;
-    return a.time < b.time;
-  }
-};
-
-struct TimeSpan {
-  DateTime start{};
-  DateTime end{}; // end > start
-};
-
-/* ========= events ========= */
-
-using EventId = std::uint64_t;
-
-enum class RepeatRule {
-  None,
-  Daily,
-  Weekly,
-  Monthly
-  // ignore recurrence by now
-};
-
+/**
+ * Event model (weekly scope).
+ */
 struct Event {
-  EventId id{0};
-  std::string title{};
-  std::string location{};
-  std::string notes{};
-
-  TimeSpan when{};
-  RepeatRule repeat{RepeatRule::None};
-
-  // "conflict/ priority"
-  int priority{0};
+    EventId id = 0;            // unique identifier in this scheduler
+    std::string title;         // name/title
+    TimeRange range;           // [start,end) in week-minutes
+    Metadata meta;             // optional key-value metadata (tags, source, etc.)
 };
 
-/* ========= search/ result ========= */
-
-struct SearchResult {
-  std::vector<Event> events{};
+/**
+ * Day view (for convenience). This is NOT the main storage.
+ * Core storage should be the RB-tree ordered by (start, id).
+ */
+struct Day {
+    int dayIndex = 0;                  // 0..6 (interpretation defined by adapter/UI)
+    std::vector<EventId> eventIds;     // IDs that fall on this day (optional helper)
 };
 
-/* ========= Scheduler ========= */
+/**
+ * Week view (optional helper).
+ * The core can generate this on demand.
+ */
+struct Week {
+    Day days[DAYS_IN_WEEK];
+};
 
+/**
+ * Status codes for scheduler operations.
+ */
+enum class Status {
+    OK = 0,
+    INVALID_TIME_RANGE,
+    NOT_FOUND,
+    CONFLICT,
+    DUPLICATE_ID
+};
+
+/**
+ * Conflict info (useful for UI/plugin layers).
+ */
+struct Conflict {
+    EventId existingId = 0;
+    EventId incomingId = 0;   // for add/reschedule you can set this
+    TimeRange overlap;        // intersection range (if you compute it)
+};
+
+/**
+ * Result wrapper: avoids exceptions and keeps core easy to embed.
+ */
+template <typename T>
+struct Result {
+    Status status = Status::OK;
+    T value{};
+};
+
+// ======================
+// Time helper utilities
+// ======================
+
+static inline bool sameDay(int t1, int t2) {
+    return t1 / MINUTES_PER_DAY == t2 / MINUTES_PER_DAY;
+}
+
+static inline int combineDayAndMinute(int day, int minute) {
+    return day * MINUTES_PER_DAY + minute;
+}
+
+/**
+ * Scheduler: a weekly event scheduler core.
+ *
+ * Design goals:
+ * - No I/O (no printing, no file parsing)
+ * - Plugin-friendly: clean API, structured data
+ * - Efficient conflict detection via RB-tree interval augmentation (maxEnd)
+ */
 class Scheduler {
 public:
-  Scheduler();
-  ~Scheduler();
+    Scheduler();
+    ~Scheduler();
 
-  // basic CRUD
-  EventId addEvent(const Event& e);              // return distributed id（or e.id）
-  bool removeEvent(EventId id);
-  bool rescheduleEvent(EventId id, const TimeSpan& newWhen);
-  std::optional<Event> getEvent(EventId id) const;
+    // Non-copyable (tree owns pointers); movable if you want later.
+    Scheduler(const Scheduler&) = delete;
+    Scheduler& operator=(const Scheduler&) = delete;
 
-  // query: get events by time range (week/month are just range wrappers)
-  std::vector<Event> queryRange(const DateTime& from,
-                               const DateTime& to) const;
+    /**
+     * Add a new event.
+     * If allowOverlap=false, rejects if the event overlaps any existing event.
+     */
+    Status addEvent(const Event& e, bool allowOverlap = false);
 
-  // query: get events by date (day view)
-  std::vector<Event> queryDay(const Date& d) const;
+    /**
+     * Remove an event by id.
+     */
+    Status removeEvent(EventId id);
 
-  // search: get events by keyword (title/location/notes)
-  std::vector<Event> searchText(const std::string& keyword) const;
+    /**
+     * Reschedule an existing event (update its time range).
+     * Optionally also update title/meta by passing a full Event.
+     */
+    Status rescheduleEvent(EventId id, const TimeRange& newRange, bool allowOverlap = false);
 
-  // duplicate: copy an event to a new start time (keep duration)
-  std::optional<EventId> duplicateEvent(EventId id, const DateTime& newStart);
+    /**
+     * Fetch an event by id (returns empty if not found).
+     */
+    std::optional<Event> getEvent(EventId id) const;
 
-  // conflict detection: check if a candidate time span conflicts with existing events
-  bool hasConflict(const TimeSpan& candidate) const;
+    /**
+     * Query events whose start time lies in [range.start, range.end).
+     * (You can later enhance to true interval intersection queries.)
+     */
+    std::vector<Event> queryByStartInRange(const TimeRange& range) const;
+
+    /**
+     * Query events that intersect the given time range.
+     * This is the "interval" query that benefits from maxEnd augmentation.
+     */
+    std::vector<Event> queryIntersecting(const TimeRange& range) const;
+
+    /**
+     * Conflict checks.
+     * - hasConflict: quick boolean
+     * - findAnyConflict: returns one conflicting event if exists
+     * - listConflicts: returns all conflicts (may be O(log n + k))
+     */
+    bool hasConflict(const TimeRange& range) const;
+    std::optional<Event> findAnyConflict(const TimeRange& range) const;
+    std::vector<Event> listConflicts(const TimeRange& range) const;
+
+    /**
+     * Find next event whose start >= t (week-minutes).
+     */
+    std::optional<Event> nextEvent(int t) const;
+
+    /**
+     * Duplicate an event. Common weekly use case:
+     * - shiftMinutes can be +MINUTES_PER_DAY (next day), +7*MINUTES_PER_DAY (next week), etc.
+     * If allowOverlap=false, duplication fails on conflicts.
+     */
+    Result<EventId> duplicateEvent(EventId id, int shiftMinutes, bool allowOverlap = false);
+
+    /**
+     * Suggest available time slots in a window [window.start, window.end),
+     * requiring a minimum duration in minutes.
+     * Returns up to k suggestions.
+     */
+    std::vector<TimeRange> suggestSlots(const TimeRange& window, int durationMinutes, int k = 5) const;
+
+    /**
+     * Optional helper: generate a week/day view from stored events.
+     * (Pure convenience for UI; core storage remains RB-tree.)
+     */
+    Week toWeekView() const;
+
+    /**
+     * Clear all events.
+     */
+    void clear();
+
+    /**
+     * Size of scheduler (# of events).
+     */
+    std::size_t size() const;
+
+    // ---------- Future plugin/adapter hooks (stubs) ----------
+    // You can implement these later without changing the core logic.
+
+    /**
+     * Export events to a portable representation (e.g. ICS/JSON) in adapter layer.
+     * Keep core independent: core only returns structured events.
+     */
+    std::vector<Event> exportAllEvents() const;
 
 private:
-  struct Impl;   // Pimpl: hide red-black tree nodes/rotation/coloring, etc.
-  Impl* impl_;   
+    // ---------- RB-tree internals ----------
+    // Key is (startTime, id) to ensure total ordering.
+    struct Key {
+        int start = 0;
+        EventId id = 0;
+    };
+
+    enum class Color { RED, BLACK };
+
+    struct Node {
+        Event event;
+
+        // Interval augmentation: max end time in this subtree.
+        int maxEnd = 0;
+
+        Color color = Color::RED;
+        Node* parent = nullptr;
+        Node* left = nullptr;
+        Node* right = nullptr;
+
+        explicit Node(const Event& e)
+            : event(e), maxEnd(e.range.end) {}
+    };
+
+    // Sentinel NIL node pattern (common RB-tree approach). You can also use nullptrs instead.
+    Node* nil_;
+    Node* root_;
+
+    // Optional fast lookup by id -> Key (helps remove/get in O(1) + O(log n)).
+    std::unordered_map<EventId, Key> index_;
+
+    // RB-tree helpers
+    void rotateLeft(Node* x);
+    void rotateRight(Node* y);
+    void insertFixup(Node* z);
+    void deleteFixup(Node* x);
+
+    Node* treeInsert(Node* z);
+    void treeDelete(Node* z);
+
+    Node* minimum(Node* x) const;
+    Node* successor(Node* x) const;
+
+    // Key comparison
+    static bool keyLess(const Key& a, const Key& b);
+
+    // Search
+    Node* findNodeByKey(const Key& key) const;
+    Node* lowerBoundByStart(int start) const;
+
+    // Augmentation maintenance
+    void updateNode(Node* x);
+    void updateUpwards(Node* x);
+
+    // Interval operations
+    bool overlaps(const TimeRange& a, const TimeRange& b) const;
+    void collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const;
 };
 
 } // namespace rbt
 
-#endif // RBT_SCHEDULER_H
+#endif // SCHEDULER_H
