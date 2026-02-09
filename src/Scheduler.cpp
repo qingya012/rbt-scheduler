@@ -1,200 +1,290 @@
-#include "scheduler.h"
+// TODO-heavy skeleton (core-only). Fill in RB-tree + interval logic step by step.
 
-#include <algorithm>
-#include <cstddef>
-using namespace std;
+#include "Scheduler.h"
+
+#include <algorithm>  // std::max
+#include <utility>    // std::move
 
 namespace rbt {
 
-/* ========= Scheduler::Impl =========
- * 真正的数据结构都藏在这里
- * 你之后可以把这里从 vector 换成红黑树
- */
-struct Scheduler::Impl {
+// ------------------------------
+// Small local helpers (optional)
+// ------------------------------
+static inline int max3(int a, int b, int c) {
+    return std::max(a, std::max(b, c));
+}
 
-  // TODO: 选择底层存储结构
-  // 方案 A（先跑通）：std::vector<Event>
-  // 方案 B（目标）：红黑树，key = DateTime / EventId
-  //
-  std::vector<Event> events;
-  
-  EventId nextId{1};
+// ------------------------------
+// Scheduler: public API
+// ------------------------------
 
-  // TODO: 红黑树根节点指针（如果你之后实现）
-  // Node* root{nullptr};
-};
-
-/* ========= constructor ========= */
-
-Scheduler::Scheduler()
-  : impl_(new Impl()) {
-  // TODO: 初始化需要的状态
-  Scheduler s;
-  EventId id = s.addEvent(e);
-  auto ev = s.getEvent(id);
+Scheduler::Scheduler() : nil_(nullptr), root_(nullptr) {
+    // TODO: allocate and initialize sentinel NIL node (nil_)
+    // Typical NIL setup:
+    //   - color = BLACK
+    //   - left/right/parent point to itself (or nullptr, but be consistent)
+    //   - maxEnd should be something neutral (e.g., 0 or -inf)
+    //
+    // Then set root_ = nil_.
+    //
+    // NOTE: If you decide not to use a sentinel and instead use nullptrs,
+    // adjust all RB-tree logic accordingly.
 }
 
 Scheduler::~Scheduler() {
-  // TODO: 释放红黑树 / 资源
-  delete impl_;
+    // TODO: free all nodes in the RB-tree, then free nil_
+    // Important: avoid recursion if you prefer. Use an explicit stack/vector.
+    //
+    // Also clear index_.
 }
 
-/* ========= basic CRUD ========= */
-
-EventId Scheduler::addEvent(const Event& e) {
-  // validate time span
-  if(e.when.end <= e.when.start) {
-    return 0; // invalid time span, return 0 as error code (or throw exception)
-  }
-
-  // check conflict
-  if(hasConflict(e.when)) {
-    return 0;
-  }
-  
-  // generate new id
-  EventId newId = impl_->nextId;
-  impl_->nextId++;
-
-  //copy even and assign id
-  EventId copy = e;
-  copy.id = newId;
-
-  // insert
-  impl_->events.push_back(copy);
-
-  // sort by start time
-  sort(impl_->events.begin(), impl_->events.end(), [](const Event& a, const Event& b) {
-    return a.when.start < b.when.start;
-  });
-
-  return newId; // placeholder
+Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
+    // TODO:
+    // 1) validate e.range.isValid()
+    // 2) if id already exists -> DUPLICATE_ID
+    // 3) if !allowOverlap and hasConflict(e.range) -> CONFLICT
+    // 4) create Node* z = new Node(e), set children/parent to nil_
+    // 5) RB-tree insert by Key(start,id)
+    // 6) update maxEnd up the path + during rotations
+    // 7) add to index_
+    (void)e;
+    (void)allowOverlap;
+    return Status::OK;
 }
 
-bool Scheduler::removeEvent(EventId id) {
-
-  for(auto it = impl_->events.begin(); it != impl_->events.end(); ++it) {
-    if(it->id == id) {
-      impl_->events.erase(it);
-      return true; // found and removed
-    }
-  }
-
-  return false;
+Status Scheduler::removeEvent(EventId id) {
+    // TODO:
+    // 1) find key via index_ (if not found -> NOT_FOUND)
+    // 2) find Node* z in tree
+    // 3) RB-tree delete z (standard RB delete + fixup)
+    // 4) maintain maxEnd updates after structural changes
+    // 5) erase from index_
+    (void)id;
+    return Status::NOT_FOUND;
 }
 
-bool Scheduler::rescheduleEvent(EventId id, const TimeSpan& newWhen) {
-  // TODO:
-  // 1. Find event
-  // 2. Modify TimeSpan
-  // 3. If key is time, need to delete then insert
-  // 4. Return whether successful
-  for (auto& e : impl_->events) {
-    if (e.id == id) {
-      // validate new time span
-      if(newWhen.end <= newWhen.start) {
-        return false; // invalid time span
-      }
-
-      // check conflict (exclude itself)
-      TimeSpan candidate = newWhen;
-      for(const auto& other : impl_->events) {
-        if(other.id != id && !(candidate.end <= other.when.start || candidate.start >= other.when.end)) {
-          return false; // found conflicting event
-        }
-      }
-
-      // update time span
-      e.when = newWhen;
-
-      // sort by start time
-      sort(impl_->events.begin(), impl_->events.end(), [](const Event& a, const Event& b) {
-        return a.when.start < b.when.start;
-      });
-
-      // delete original event
-      impl_->events.erase(remove_if(impl_->events.begin(), impl_->events.end(),
-                                      [id](const Event& e) { return e.id == id; }),
-                           impl_->events.end());
-
-      return true; // rescheduled successfully
-    }
-  }
-
-  return false;
+Status Scheduler::rescheduleEvent(EventId id, const TimeRange& newRange, bool allowOverlap) {
+    // TODO:
+    // 1) validate newRange
+    // 2) find existing event by id
+    // 3) if !allowOverlap:
+    //      - temporarily ignore the event itself
+    //      - check conflicts for newRange
+    // 4) easiest: remove(id) then add(updatedEvent)
+    //    (make sure to preserve title/meta)
+    (void)id;
+    (void)newRange;
+    (void)allowOverlap;
+    return Status::NOT_FOUND;
 }
 
 std::optional<Event> Scheduler::getEvent(EventId id) const {
+    // TODO: use index_ -> find Node -> return node->event
+    (void)id;
+    return std::nullopt;
+}
 
-  for (auto& e : impl_->events) {
-    if (e.id == id) {
-      return e; // found
+std::vector<Event> Scheduler::queryByStartInRange(const TimeRange& range) const {
+    // TODO:
+    // 1) validate range
+    // 2) start from lowerBoundByStart(range.start)
+    // 3) iterate successor until event.start >= range.end
+    (void)range;
+    return {};
+}
+
+std::vector<Event> Scheduler::queryIntersecting(const TimeRange& range) const {
+    // TODO: interval query using maxEnd augmentation
+    // collectIntersecting(root_, range, out)
+    (void)range;
+    return {};
+}
+
+bool Scheduler::hasConflict(const TimeRange& range) const {
+    // TODO:
+    // Use interval tree logic with maxEnd:
+    // Walk down from root:
+    //   - if current overlaps -> true
+    //   - if left subtree exists and left->maxEnd > range.start -> go left
+    //   - else go right
+    (void)range;
+    return false;
+}
+
+std::optional<Event> Scheduler::findAnyConflict(const TimeRange& range) const {
+    // TODO: similar to hasConflict, but return the conflicting Event
+    (void)range;
+    return std::nullopt;
+}
+
+std::vector<Event> Scheduler::listConflicts(const TimeRange& range) const {
+    // TODO: collect all intersecting events (could reuse queryIntersecting)
+    (void)range;
+    return {};
+}
+
+std::optional<Event> Scheduler::nextEvent(int t) const {
+    // TODO: use lowerBoundByStart(t), return that node’s event if exists
+    (void)t;
+    return std::nullopt;
+}
+
+Result<EventId> Scheduler::duplicateEvent(EventId id, int shiftMinutes, bool allowOverlap) {
+    // TODO:
+    // 1) fetch event by id
+    // 2) create new event with new id (you decide policy: e.g. max+1)
+    // 3) shift range by shiftMinutes
+    // 4) addEvent(newEvent)
+    Result<EventId> r;
+    r.status = Status::NOT_FOUND;
+    r.value = 0;
+    (void)shiftMinutes;
+    (void)allowOverlap;
+    return r;
+}
+
+std::vector<TimeRange> Scheduler::suggestSlots(const TimeRange& window, int durationMinutes, int k) const {
+    // TODO (simple approach):
+    // 1) validate window + duration
+    // 2) cursor = window.start
+    // 3) iterate events by start time within window:
+    //    - if cursor + duration <= event.start -> record [cursor, cursor+duration]
+    //    - cursor = max(cursor, event.end)
+    // 4) after loop: if cursor + duration <= window.end -> record
+    // Stop when collected k slots.
+    (void)window;
+    (void)durationMinutes;
+    (void)k;
+    return {};
+}
+
+Week Scheduler::toWeekView() const {
+    // TODO:
+    // 1) init Week with dayIndex 0..6
+    // 2) iterate all events in order, map start day to days[day].eventIds
+    Week w;
+    for (int i = 0; i < DAYS_IN_WEEK; i++) {
+        w.days[i].dayIndex = i;
     }
-  }
-
-  return nullopt;
+    return w;
 }
 
-/* ========= search ========= */
-
-std::vector<Event>
-Scheduler::queryRange(const DateTime& from, const DateTime& to) const {
-  // TODO:
-  // 1. Iterate/search all events that may fall within the range
-  // 2. Check if they intersect with [from, to)
-  // 3. Collect and return
-
-  return {};
+void Scheduler::clear() {
+    // TODO: delete all nodes, reset root_ = nil_, clear index_
 }
 
-std::vector<Event>
-Scheduler::queryDay(const Date& d) const {
-  // TODO:
-  // 1. Construct the day's [00:00, 24:00) DateTime
-  // 2. Call queryRange
-
-  return {};
+std::size_t Scheduler::size() const {
+    return index_.size();
 }
 
-std::vector<Event>
-Scheduler::searchText(const std::string& keyword) const {
-  // TODO:
-  // 1. Iterate all events
-  // 2. Check keyword in title / location / notes
-  // 3. Return matching results
-
-  return {};
+std::vector<Event> Scheduler::exportAllEvents() const {
+    // TODO: in-order traversal, push all events
+    return {};
 }
 
-/* ========= extra ========= */
+// ------------------------------
+// RB-tree internals
+// ------------------------------
 
-std::optional<EventId>
-Scheduler::duplicateEvent(EventId id, const DateTime& newStart) {
-  // TODO:
-  // 1. Find event by id
-  // 2. Calculate duration
-  // 3. Construct new TimeSpan
-  // 4. addEvent
-  // 5. Return new id
-
-  return std::nullopt;
+bool Scheduler::keyLess(const Key& a, const Key& b) {
+    if (a.start != b.start) return a.start < b.start;
+    return a.id < b.id;
 }
 
-// check if a candidate time span conflicts with existing events
-bool Scheduler::hasConflict(const TimeSpan& candidate) const {
-  // validate candidate itself
-  if(candidate.end <= candidate.start) {
-    return true; 
-  }
+void Scheduler::rotateLeft(Node* x) {
+    // TODO: standard RB rotate left
+    // Also: update maxEnd for affected nodes (x and its new parent)
+    (void)x;
+}
 
-  // loop though events and check for overlap
-  for(const auto& e: impl_->events) {
-    if(!(candidate.end <= e.start || candidate.start >= e.end)) {
-      return true; // found overlapping event
-    }
-  }
+void Scheduler::rotateRight(Node* y) {
+    // TODO: standard RB rotate right
+    // Also: update maxEnd for affected nodes
+    (void)y;
+}
 
-  return false;
+void Scheduler::insertFixup(Node* z) {
+    // TODO: standard RB insert fixup
+    (void)z;
+}
+
+void Scheduler::deleteFixup(Node* x) {
+    // TODO: standard RB delete fixup
+    (void)x;
+}
+
+Scheduler::Node* Scheduler::treeInsert(Node* z) {
+    // TODO:
+    // 1) BST insert by Key(z->event.range.start, z->event.id)
+    // 2) set z->left/right = nil_
+    // 3) set z->color = RED
+    // 4) updateUpwards(z) as needed
+    (void)z;
+    return nullptr;
+}
+
+void Scheduler::treeDelete(Node* z) {
+    // TODO: standard RB delete (transplant, track original color, fixup)
+    (void)z;
+}
+
+Scheduler::Node* Scheduler::minimum(Node* x) const {
+    // TODO: walk left until nil_
+    (void)x;
+    return nullptr;
+}
+
+Scheduler::Node* Scheduler::successor(Node* x) const {
+    // TODO:
+    // if right subtree exists -> minimum(right)
+    // else go up until you come from left
+    (void)x;
+    return nullptr;
+}
+
+Scheduler::Node* Scheduler::findNodeByKey(const Key& key) const {
+    // TODO: BST search by key
+    (void)key;
+    return nullptr;
+}
+
+Scheduler::Node* Scheduler::lowerBoundByStart(int start) const {
+    // TODO: find smallest node with key.start >= start
+    (void)start;
+    return nullptr;
+}
+
+void Scheduler::updateNode(Node* x) {
+    // TODO:
+    // x->maxEnd = max(x->event.range.end, x->left->maxEnd, x->right->maxEnd)
+    (void)x;
+}
+
+void Scheduler::updateUpwards(Node* x) {
+    // TODO:
+    // while x != nil_:
+    //   updateNode(x)
+    //   x = x->parent
+    (void)x;
+}
+
+bool Scheduler::overlaps(const TimeRange& a, const TimeRange& b) const {
+    // half-open overlap check
+    return a.start < b.end && b.start < a.end;
+}
+
+void Scheduler::collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const {
+    // TODO:
+    // Use maxEnd pruning:
+    // - If x == nil_ return
+    // - If left subtree exists and left->maxEnd > range.start -> search left
+    // - If x overlaps -> add
+    // - If x->event.range.start < range.end -> search right
+    //
+    // If you want to avoid recursion, rewrite using an explicit stack.
+    (void)x;
+    (void)range;
+    (void)out;
 }
 
 } // namespace rbt
