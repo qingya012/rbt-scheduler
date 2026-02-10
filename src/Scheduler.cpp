@@ -186,33 +186,53 @@ std::vector<Event> Scheduler::exportAllEvents() const {
 // RB-tree internals
 // ------------------------------
 
+/**
+ * Compare two keys for ordering
+ * 
+ * @return true if a < b, false otherwise.
+ */
 bool Scheduler::keyLess(const Key& a, const Key& b) {
     if (a.start != b.start) return a.start < b.start;
-    return a.id < b.id;
+    return a.id < b.id; // tie-breaker
 }
 
-void Scheduler::rotateLeft(Node* x) {
+/**
+ * Rotate node x to the left.
+ */
+void Scheduler::rotateLeft(Node* node) {
     // TODO: standard RB rotate left
     // Also: update maxEnd for affected nodes (x and its new parent)
-    (void)x;
+    (void)node;
 }
 
-void Scheduler::rotateRight(Node* y) {
+/**
+ * Rotate node y to the right.
+ */
+void Scheduler::rotateRight(Node* node) {
     // TODO: standard RB rotate right
     // Also: update maxEnd for affected nodes
-    (void)y;
+    (void)node;
 }
 
+/**
+ * Fix the red-black tree properties after direct insertion (red node).
+ */
 void Scheduler::insertFixup(Node* z) {
     // TODO: standard RB insert fixup
     (void)z;
 }
 
+/**
+ * Fix the red-black tree properties after deletion (potentially double-black).
+ */
 void Scheduler::deleteFixup(Node* x) {
     // TODO: standard RB delete fixup
     (void)x;
 }
 
+/**
+ * Insert a new node into the tree. (call insertFixup in process/ after)
+ */
 Scheduler::Node* Scheduler::treeInsert(Node* z) {
     // TODO:
     // 1) BST insert by Key(z->event.range.start, z->event.id)
@@ -223,17 +243,26 @@ Scheduler::Node* Scheduler::treeInsert(Node* z) {
     return nullptr;
 }
 
+/**
+ * Delete a node from the tree. (call deleteFixup in process/ after)
+ */
 void Scheduler::treeDelete(Node* z) {
     // TODO: standard RB delete (transplant, track original color, fixup)
     (void)z;
 }
 
+/*
+ * Find the minimum node in a subtree.
+ */
 Scheduler::Node* Scheduler::minimum(Node* x) const {
     // TODO: walk left until nil_
     (void)x;
     return nullptr;
 }
 
+/**
+ * Find the successor of a node.
+ */
 Scheduler::Node* Scheduler::successor(Node* x) const {
     // TODO:
     // if right subtree exists -> minimum(right)
@@ -242,37 +271,52 @@ Scheduler::Node* Scheduler::successor(Node* x) const {
     return nullptr;
 }
 
+/*
+ * Find a node by its key.
+ */
 Scheduler::Node* Scheduler::findNodeByKey(const Key& key) const {
     // TODO: BST search by key
     (void)key;
     return nullptr;
 }
 
+/*
+ * Find the smallest node with key.start >= start.
+ */
 Scheduler::Node* Scheduler::lowerBoundByStart(int start) const {
     // TODO: find smallest node with key.start >= start
     (void)start;
     return nullptr;
 }
 
-void Scheduler::updateNode(Node* x) {
-    // TODO:
-    // x->maxEnd = max(x->event.range.end, x->left->maxEnd, x->right->maxEnd)
-    (void)x;
+/*
+ * Update the maxEnd value of a node based on its event and children.
+ */
+void Scheduler::updateNode(Node* node) {
+    node->maxEnd = max(node->event.range.end, node->left->maxEnd, node->right->maxEnd);
 }
 
-void Scheduler::updateUpwards(Node* x) {
-    // TODO:
-    // while x != nil_:
-    //   updateNode(x)
-    //   x = x->parent
-    (void)x;
+/*
+ * Update maxEnd values up the path from node to root.
+ */
+void Scheduler::updateUpwards(Node* node) {
+    while (node != nil_) {
+        updateNode(node);
+        node = node->parent;
+    }
 }
 
+/*
+ * Check if two time ranges overlap.
+ */
 bool Scheduler::overlaps(const TimeRange& a, const TimeRange& b) const {
     // half-open overlap check
     return a.start < b.end && b.start < a.end;
 }
 
+/*
+ * Collect all events in the subtree rooted at x that intersect with the given range.
+ */
 void Scheduler::collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const {
     // TODO:
     // Use maxEnd pruning:
