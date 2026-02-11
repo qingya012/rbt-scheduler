@@ -18,17 +18,19 @@ static inline int max3(int a, int b, int c) {
 // Scheduler: public API
 // ------------------------------
 
+/**
+ * Initialize an empty scheduler.
+ * Allocates the sentinel NIL node and sets up the initial tree state.
+*/
 Scheduler::Scheduler() : nil_(nullptr), root_(nullptr) {
-    // TODO: allocate and initialize sentinel NIL node (nil_)
-    // Typical NIL setup:
-    //   - color = BLACK
-    //   - left/right/parent point to itself (or nullptr, but be consistent)
-    //   - maxEnd should be something neutral (e.g., 0 or -inf)
-    //
-    // Then set root_ = nil_.
-    //
-    // NOTE: If you decide not to use a sentinel and instead use nullptrs,
-    // adjust all RB-tree logic accordingly.
+    nil_ = new Node(Event{0, {0, 0}, ""}); // dummy event for nil
+    nil_->color = Node::Color::BLACK;
+    nil_->left = nil_;
+    nil_->right = nil_;
+    nil_->parent = nil_;
+    nil_->maxEnd = 0;
+
+    root_ = nil_;
 }
 
 Scheduler::~Scheduler() {
@@ -201,8 +203,32 @@ bool Scheduler::keyLess(const Key& a, const Key& b) {
  */
 void Scheduler::rotateLeft(Node* node) {
     // TODO: standard RB rotate left
+    Node* b = node->right;
+    node->right = b->left;
+
+    if (b->left != nil_) {
+        b->left->parent = node;
+    }
+
+    b->parent = node->parent;
+
+    Node* p = node->parent;
+
+    if (p == nil_) {
+        root_ = b;
+    } else if (node == node->parent->left) {
+        p->left = b;
+    } else {
+        p->right = b;
+    }
+
+    b->left = node;
+    node->parent = b;
+
     // Also: update maxEnd for affected nodes (x and its new parent)
-    (void)node;
+    updateNode(node);
+    updateNode(b);
+    updateUpwards(b->parent);
 }
 
 /**
@@ -210,8 +236,31 @@ void Scheduler::rotateLeft(Node* node) {
  */
 void Scheduler::rotateRight(Node* node) {
     // TODO: standard RB rotate right
+    Node* a = node->left;
+    node->left = a->right;
+
+    if (a->right != nil_) {
+        a->right->parent = node;
+    }
+
+    a->parent = node->parent;
+
+    Node* p = node->parent;
+
+    if (p == nil_) {
+        root_ = a;
+    } else if (p->left == node) {
+        p->left = a;
+    } else {
+        p->right = a;
+    }
+
+    a->right = node;
+    node->parent = a;
     // Also: update maxEnd for affected nodes
-    (void)node;
+    updateNode(node);
+    updateNode(a);
+    updateUpwards(a->parent);
 }
 
 /**
@@ -300,6 +349,8 @@ void Scheduler::updateNode(Node* node) {
  * Update maxEnd values up the path from node to root.
  */
 void Scheduler::updateUpwards(Node* node) {
+    if(node == nil_) return; // base case
+
     while (node != nil_) {
         updateNode(node);
         node = node->parent;
