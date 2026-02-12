@@ -282,13 +282,24 @@ void Scheduler::deleteFixup(Node* x) {
 /**
  * Insert a new node into the tree. (call insertFixup in process/ after)
  */
-Scheduler::Node* Scheduler::treeInsert(Node* z) {
-    // TODO:
-    // 1) BST insert by Key(z->event.range.start, z->event.id)
-    // 2) set z->left/right = nil_
-    // 3) set z->color = RED
-    // 4) updateUpwards(z) as needed
-    (void)z;
+Scheduler::Node* Scheduler::treeInsert(Node* node) {
+
+    // todo!!!!
+
+    Key key{node->event.range.start, node->event.id};
+
+    node->left = nil_;
+    node->right = nil_;
+
+    Node* p = nil_;
+    node->parent = p;
+
+    p->left = node;
+    p->right = node;
+    node->color = Node::Color::RED;
+
+    updateUpwards(node);
+    
     return nullptr;
 }
 
