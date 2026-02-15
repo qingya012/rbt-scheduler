@@ -284,23 +284,43 @@ void Scheduler::deleteFixup(Node* x) {
  */
 Scheduler::Node* Scheduler::treeInsert(Node* node) {
 
-    // todo!!!!
-
     Key key{node->event.range.start, node->event.id};
 
+    // initialize new node
     node->left = nil_;
     node->right = nil_;
-
-    Node* p = nil_;
-    node->parent = p;
-
-    p->left = node;
-    p->right = node;
     node->color = Node::Color::RED;
 
-    updateUpwards(node);
+    node->maxEnd = node->event.range.end;
+
+    Node* p = nil_;
+    Node* curr = root_;
+
+    while (curr != nil_) {
+        p = curr;
+        if (keyLess(key, Key{curr->event.range.start, curr->event.id})) {
+            curr = curr->left;
+        } else {
+            curr = curr->right;
+        }
+    }
+
+    node->parent = p;
+
+    if (curr == nil_) {
+        root_ = node;
+    } else if (keyLess(key, Key{p->event.range.start, p->event.id})) {
+        p->left = node;
+    } else {
+        p->right = node;
+    }
     
-    return nullptr;
+
+    updateUpwards(node);
+
+    insertFixup(node);
+    
+    return node;
 }
 
 /**
