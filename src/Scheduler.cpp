@@ -568,9 +568,19 @@ Scheduler::Node* Scheduler::findNodeByKey(const Key& key) const {
  * Find the smallest node with key.start >= start.
  */
 Scheduler::Node* Scheduler::lowerBoundByStart(int start) const {
-    // TODO: find smallest node with key.start >= start
-    (void)start;
-    return nullptr;
+    Node* curr = root_;
+    Node* candidate = nil_;
+
+    while (curr != nil_) {
+
+        if (curr->event.range.start >= start) {
+            candidate = curr; // potential lower bound
+            curr = curr->left; // try to find smaller start
+        } else {
+            curr = curr->right; // need larger start
+        }
+    }
+    return (candidate == nil_) ? nullptr : candidate;
 }
 
 /*
@@ -604,17 +614,19 @@ bool Scheduler::overlaps(const TimeRange& a, const TimeRange& b) const {
  * Collect all events in the subtree rooted at x that intersect with the given range.
  */
 void Scheduler::collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const {
-    // TODO:
-    // Use maxEnd pruning:
-    // - If x == nil_ return
-    // - If left subtree exists and left->maxEnd > range.start -> search left
-    // - If x overlaps -> add
-    // - If x->event.range.start < range.end -> search right
-    //
-    // If you want to avoid recursion, rewrite using an explicit stack.
-    (void)x;
-    (void)range;
-    (void)out;
+    if (x == nil_) return;
+
+    if (x->left != nil_ && x->left->maxEnd > range.start) {
+        collectIntersecting(x->left, range, out);
+    }
+
+    if (overlaps(x->event.range, range)) {
+        out.push_back(x->event);
+    }
+
+    if (x->event.range.start < range.end) {
+        collectIntersecting(x->right, range, out);
+    }
 }
 
 } // namespace rbt
