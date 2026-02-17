@@ -102,20 +102,35 @@ std::vector<Event> Scheduler::queryIntersecting(const TimeRange& range) const {
     return {};
 }
 
+/**
+ * Check if any event overlaps with the given range.
+ *
+ * @return true if there is a conflict, false otherwise.
+ */
 bool Scheduler::hasConflict(const TimeRange& range) const {
-    // TODO:
-    // Use interval tree logic with maxEnd:
-    // Walk down from root:
-    //   - if current overlaps -> true
-    //   - if left subtree exists and left->maxEnd > range.start -> go left
-    //   - else go right
-    (void)range;
-    return false;
+    return findAnyConflict(range).has_value();
 }
 
+/**
+ * Find any single event that conflicts with the given range.
+ *
+ * @return an optional Event that overlaps with the range, or std::nullopt if no conflict.
+ */
 std::optional<Event> Scheduler::findAnyConflict(const TimeRange& range) const {
-    // TODO: similar to hasConflict, but return the conflicting Event
-    (void)range;
+    Node* curr = root_;
+
+    while (curr != nil_) {
+        if (overlaps(curr->event.range, range)) {
+            return curr->event; // found a conflict
+        }
+
+        if (curr->left != nil_ && curr->left->maxEnd > range.start) {
+            curr = curr->left; // potential conflicts in left subtree
+        } else {
+            curr = curr->right; // go right
+        }
+    }
+
     return std::nullopt;
 }
 
