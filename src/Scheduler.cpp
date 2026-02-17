@@ -266,17 +266,149 @@ void Scheduler::rotateRight(Node* node) {
 /**
  * Fix the red-black tree properties after direct insertion (red node).
  */
-void Scheduler::insertFixup(Node* z) {
+void Scheduler::insertFixup(Node* node) {
     // TODO: standard RB insert fixup
-    (void)z;
+    while (node->parent->color == Node::Color::RED) {
+        Node* p = node->parent; // parent
+        Node* g = p->parent;    // grandparent
+
+        if (p == g->left) {
+            Node* u = g->right; // uncle
+
+            if (u->color == Node::Color::RED) {
+                // Case 1: Uncle is red -> recolor
+                p->color = Node::Color::BLACK;
+                u->color = Node::Color::BLACK;
+                g->color = Node::Color::RED;
+                node = g; // move up to fix potential violations at grandparent
+            } else {
+                // Case 2 & 3: Uncle is black
+                if (node == p->right) {
+                    // Case 2: node is right child -> rotate left
+                    node = p;
+                    rotateLeft(node);
+                    p = node->parent; // update parent after rotation
+                    g = p->parent;    // update grandparent after rotation
+                }
+                // Case 3: node is left child -> rotate right
+                p->color = Node::Color::BLACK;
+                g->color = Node::Color::RED;
+                rotateRight(g);
+            }
+        } else {
+            // Symmetric cases for when parent is right child
+            Node* u = g->left; // uncle
+
+            if (u->color == Node::Color::RED) {
+                // Case 1: Uncle is red -> recolor
+                p->color = Node::Color::BLACK;
+                u->color = Node::Color::BLACK;
+                g->color = Node::Color::RED;
+                node = g; // move up to fix potential violations at grandparent
+            } else {
+                // Case 2 & 3: Uncle is black
+                if (node == p->left) {
+                    // Case 2: node is left child -> rotate right
+                    node = p;
+                    rotateRight(node);
+                    p = node->parent; // update parent after rotation
+                    g = p->parent;    // update grandparent after rotation
+                }
+                // Case 3: node is right child -> rotate left
+                p->color = Node::Color::BLACK;
+                g->color = Node::Color::RED;
+                rotateLeft(g);
+            }
+        }
+    }
+}
+
+/**
+ * Replace subtree rooted at u with subtree rooted at v.
+ * Used in delete operation.
+ */
+void Scheduler::transplant(Node* u, Node* v) {
+    if (u->parent == nil_) {
+        root_ = v;
+    } else if (u == u->parent->left) {
+        u->parent->left = v;
+    } else {
+        u->parent->right = v;
+    }
+    v->parent = u->parent;
 }
 
 /**
  * Fix the red-black tree properties after deletion (potentially double-black).
  */
-void Scheduler::deleteFixup(Node* x) {
-    // TODO: standard RB delete fixup
-    (void)x;
+void Scheduler::deleteFixup(Node* node) {
+    while (node != root_ && node->color == Node::Color::BLACK) {
+
+        if (node == node->parent->left) {
+            Node* sibling = node->parent->right;
+
+            // Case 1: sibling is red -> recolor and rotate
+            if (sibling->color == Node::Color::RED) {
+                sibling->color = Node::Color::BLACK;
+                node->parent->color = Node::Color::RED;
+                rotateLeft(node->parent);
+                sibling = node->parent->right;
+            }
+
+            // Case 2: sibling is black and both children are black -> recolor sibling and move up
+            if (sibling->left->color == Node::Color::BLACK && sibling->right->color == Node::Color::BLACK) {
+                sibling->color = Node::Color::RED;
+                node = node->parent;
+
+            } else {
+
+                // Case 3: sibling is black and sibling's right child is black -> recolor and rotate sibling
+                if (sibling->right->color == Node::Color::BLACK) {
+                    sibling->left->color = Node::Color::BLACK;
+                    sibling->color = Node::Color::RED;
+                    rotateRight(sibling);
+                    sibling = node->parent->right;
+                }
+
+                sibling->color = node->parent->color;
+                node->parent->color = Node::Color::BLACK;
+                sibling->right->color = Node::Color::BLACK;
+                rotateLeft(node->parent);
+                node = root_;
+            }
+
+        } else { // mirror
+            Node* sibling = node->parent->left;
+
+            if (sibling->color == Node::Color::RED) {
+                sibling->color = Node::Color::BLACK;
+                node->parent->color = Node::Color::RED;
+                rotateRight(node->parent);
+                sibling = node->parent->left;
+            }
+
+            if (sibling->right->color == Node::Color::BLACK && sibling->left->color == Node::Color::BLACK) {
+                sibling->color = Node::Color::RED;
+                node = node->parent;
+
+            } else {
+
+                if (sibling->left->color == Node::Color::BLACK) {
+                    sibling->right->color = Node::Color::BLACK;
+                    sibling->color = Node::Color::RED;
+                    rotateLeft(sibling);
+                    sibling = node->parent->left;
+                }
+
+                sibling->color = node->parent->color;
+                node->parent->color = Node::Color::BLACK;
+                sibling->left->color = Node::Color::BLACK;
+                rotateRight(node->parent);
+                node = root_;
+            }
+        }
+    }
+    node->color = Node::Color::BLACK;
 }
 
 /**
@@ -326,38 +458,110 @@ Scheduler::Node* Scheduler::treeInsert(Node* node) {
 /**
  * Delete a node from the tree. (call deleteFixup in process/ after)
  */
-void Scheduler::treeDelete(Node* z) {
-    // TODO: standard RB delete (transplant, track original color, fixup)
-    (void)z;
+void Scheduler::treeDelete(Node* node) {
+    Node* temp = node;
+    Node::Color originalColor = temp->color;
+
+    Node* x = nil_; // moves to temp's original position
+    Node* updateStart = nil_; // node to start maxEnd updates from
+
+    if (node->left == nil_) {
+        x = node->right;
+        transplant(node, node->right);
+        updateStart = node->parent;
+    } else if (node->right == nil_) {
+        x = node->left;
+        transplant(node, node->left);
+        updateStart = node->parent;
+    } else {
+        temp = minimum(node->right); // successor
+        originalColor = temp->color;
+        x = temp->right;
+
+        if (temp->parent == node) {
+            x->parent = temp; // important for fixup
+            updateStart = temp; // maxEnd updates start from successor's position
+        } else {
+            transplant(temp, temp->right);
+            temp->right = node->right;
+            temp->right->parent = temp;
+            updateStart = temp->parent; // maxEnd updates start from successor's original parent
+        }
+
+        transplant(node, temp);
+        temp->left = node->left;
+        temp->left->parent = temp;
+        temp->color = node->color;
+
+        updateStart = temp; // maxEnd updates start from successor's new position
+    }
+
+    if (updateStart != nil_) {
+        updateUpwards(updateStart);
+    } else {
+        // If updateStart is nil_, we need to update from x's parent (which could be nil_)
+        updateUpwards(x->parent);
+    }
+
+    if (originalColor == Node::Color::BLACK) {
+        deleteFixup(x);
+    }
+
+    if (x != nil_) {
+        updateUpwards(x->parent);
+    } else {
+        updateUpwards(root);
+    }
 }
 
 /*
  * Find the minimum node in a subtree.
  */
-Scheduler::Node* Scheduler::minimum(Node* x) const {
-    // TODO: walk left until nil_
-    (void)x;
-    return nullptr;
+Scheduler::Node* Scheduler::minimum(Node* node) const {
+    while (node->left != nil_) {
+        node = node->left;
+    }
+
+    return node;
 }
 
 /**
  * Find the successor of a node.
  */
-Scheduler::Node* Scheduler::successor(Node* x) const {
-    // TODO:
-    // if right subtree exists -> minimum(right)
-    // else go up until you come from left
-    (void)x;
-    return nullptr;
+Scheduler::Node* Scheduler::successor(Node* node) const {
+    // right subtree exists
+    if (node->right != nil_) {
+        return minimum(node->right);
+    }
+
+    Node* p = node->parent;
+
+    // walk up until find a node that is a left child of its parent
+    while (p != nil_ && node == p->right) {
+        node = p;
+        p = p->parent;
+    }
+    return p;
 }
 
 /*
  * Find a node by its key.
  */
 Scheduler::Node* Scheduler::findNodeByKey(const Key& key) const {
-    // TODO: BST search by key
-    (void)key;
-    return nullptr;
+    Node* curr = root_;
+
+    while (curr != nil_) {
+        Key currKey{curr->event.range.start, curr->event.id};
+
+        if(keyLess(key, currKey)) {
+            curr = curr->left;
+        } else if (keyLess(currKey, key)) {
+            curr = curr->right;
+        } else {
+            return curr; // found
+        }
+    }
+    return nullptr; // not found
 }
 
 /*
