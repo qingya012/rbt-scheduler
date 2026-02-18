@@ -23,8 +23,8 @@ static inline int max3(int a, int b, int c) {
  * Allocates the sentinel NIL node and sets up the initial tree state.
 */
 Scheduler::Scheduler() : nil_(nullptr), root_(nullptr) {
-    nil_ = new Node(Event{0, {0, 0}, ""}); // dummy event for nil
-    nil_->color = Node::Color::BLACK;
+    nil_ = new Node(Event{}); // dummy event for nil
+    nil_->color = Color::BLACK;
     nil_->left = nil_;
     nil_->right = nil_;
     nil_->parent = nil_;
@@ -155,6 +155,7 @@ Result<EventId> Scheduler::duplicateEvent(EventId id, int shiftMinutes, bool all
     Result<EventId> r;
     r.status = Status::NOT_FOUND;
     r.value = 0;
+    (void) id;
     (void)shiftMinutes;
     (void)allowOverlap;
     return r;
@@ -283,18 +284,18 @@ void Scheduler::rotateRight(Node* node) {
  */
 void Scheduler::insertFixup(Node* node) {
     // TODO: standard RB insert fixup
-    while (node->parent->color == Node::Color::RED) {
+    while (node->parent->color == Color::RED) {
         Node* p = node->parent; // parent
         Node* g = p->parent;    // grandparent
 
         if (p == g->left) {
             Node* u = g->right; // uncle
 
-            if (u->color == Node::Color::RED) {
+            if (u->color == Color::RED) {
                 // Case 1: Uncle is red -> recolor
-                p->color = Node::Color::BLACK;
-                u->color = Node::Color::BLACK;
-                g->color = Node::Color::RED;
+                p->color = Color::BLACK;
+                u->color = Color::BLACK;
+                g->color = Color::RED;
                 node = g; // move up to fix potential violations at grandparent
             } else {
                 // Case 2 & 3: Uncle is black
@@ -306,19 +307,19 @@ void Scheduler::insertFixup(Node* node) {
                     g = p->parent;    // update grandparent after rotation
                 }
                 // Case 3: node is left child -> rotate right
-                p->color = Node::Color::BLACK;
-                g->color = Node::Color::RED;
+                p->color = Color::BLACK;
+                g->color = Color::RED;
                 rotateRight(g);
             }
         } else {
             // Symmetric cases for when parent is right child
             Node* u = g->left; // uncle
 
-            if (u->color == Node::Color::RED) {
+            if (u->color == Color::RED) {
                 // Case 1: Uncle is red -> recolor
-                p->color = Node::Color::BLACK;
-                u->color = Node::Color::BLACK;
-                g->color = Node::Color::RED;
+                p->color = Color::BLACK;
+                u->color = Color::BLACK;
+                g->color = Color::RED;
                 node = g; // move up to fix potential violations at grandparent
             } else {
                 // Case 2 & 3: Uncle is black
@@ -330,8 +331,8 @@ void Scheduler::insertFixup(Node* node) {
                     g = p->parent;    // update grandparent after rotation
                 }
                 // Case 3: node is right child -> rotate left
-                p->color = Node::Color::BLACK;
-                g->color = Node::Color::RED;
+                p->color = Color::BLACK;
+                g->color = Color::RED;
                 rotateLeft(g);
             }
         }
@@ -357,37 +358,37 @@ void Scheduler::transplant(Node* u, Node* v) {
  * Fix the red-black tree properties after deletion (potentially double-black).
  */
 void Scheduler::deleteFixup(Node* node) {
-    while (node != root_ && node->color == Node::Color::BLACK) {
+    while (node != root_ && node->color == Color::BLACK) {
 
         if (node == node->parent->left) {
             Node* sibling = node->parent->right;
 
             // Case 1: sibling is red -> recolor and rotate
-            if (sibling->color == Node::Color::RED) {
-                sibling->color = Node::Color::BLACK;
-                node->parent->color = Node::Color::RED;
+            if (sibling->color == Color::RED) {
+                sibling->color = Color::BLACK;
+                node->parent->color = Color::RED;
                 rotateLeft(node->parent);
                 sibling = node->parent->right;
             }
 
             // Case 2: sibling is black and both children are black -> recolor sibling and move up
-            if (sibling->left->color == Node::Color::BLACK && sibling->right->color == Node::Color::BLACK) {
-                sibling->color = Node::Color::RED;
+            if (sibling->left->color == Color::BLACK && sibling->right->color == Color::BLACK) {
+                sibling->color = Color::RED;
                 node = node->parent;
 
             } else {
 
                 // Case 3: sibling is black and sibling's right child is black -> recolor and rotate sibling
-                if (sibling->right->color == Node::Color::BLACK) {
-                    sibling->left->color = Node::Color::BLACK;
-                    sibling->color = Node::Color::RED;
+                if (sibling->right->color == Color::BLACK) {
+                    sibling->left->color = Color::BLACK;
+                    sibling->color = Color::RED;
                     rotateRight(sibling);
                     sibling = node->parent->right;
                 }
 
                 sibling->color = node->parent->color;
-                node->parent->color = Node::Color::BLACK;
-                sibling->right->color = Node::Color::BLACK;
+                node->parent->color = Color::BLACK;
+                sibling->right->color = Color::BLACK;
                 rotateLeft(node->parent);
                 node = root_;
             }
@@ -395,35 +396,35 @@ void Scheduler::deleteFixup(Node* node) {
         } else { // mirror
             Node* sibling = node->parent->left;
 
-            if (sibling->color == Node::Color::RED) {
-                sibling->color = Node::Color::BLACK;
-                node->parent->color = Node::Color::RED;
+            if (sibling->color == Color::RED) {
+                sibling->color = Color::BLACK;
+                node->parent->color = Color::RED;
                 rotateRight(node->parent);
                 sibling = node->parent->left;
             }
 
-            if (sibling->right->color == Node::Color::BLACK && sibling->left->color == Node::Color::BLACK) {
-                sibling->color = Node::Color::RED;
+            if (sibling->right->color == Color::BLACK && sibling->left->color == Color::BLACK) {
+                sibling->color = Color::RED;
                 node = node->parent;
 
             } else {
 
-                if (sibling->left->color == Node::Color::BLACK) {
-                    sibling->right->color = Node::Color::BLACK;
-                    sibling->color = Node::Color::RED;
+                if (sibling->left->color == Color::BLACK) {
+                    sibling->right->color = Color::BLACK;
+                    sibling->color = Color::RED;
                     rotateLeft(sibling);
                     sibling = node->parent->left;
                 }
 
                 sibling->color = node->parent->color;
-                node->parent->color = Node::Color::BLACK;
-                sibling->left->color = Node::Color::BLACK;
+                node->parent->color = Color::BLACK;
+                sibling->left->color = Color::BLACK;
                 rotateRight(node->parent);
                 node = root_;
             }
         }
     }
-    node->color = Node::Color::BLACK;
+    node->color = Color::BLACK;
 }
 
 /**
@@ -436,7 +437,7 @@ Scheduler::Node* Scheduler::treeInsert(Node* node) {
     // initialize new node
     node->left = nil_;
     node->right = nil_;
-    node->color = Node::Color::RED;
+    node->color = Color::RED;
 
     node->maxEnd = node->event.range.end;
 
@@ -475,7 +476,7 @@ Scheduler::Node* Scheduler::treeInsert(Node* node) {
  */
 void Scheduler::treeDelete(Node* node) {
     Node* temp = node;
-    Node::Color originalColor = temp->color;
+    Color originalColor = temp->color;
 
     Node* x = nil_; // moves to temp's original position
     Node* updateStart = nil_; // node to start maxEnd updates from
@@ -518,14 +519,14 @@ void Scheduler::treeDelete(Node* node) {
         updateUpwards(x->parent);
     }
 
-    if (originalColor == Node::Color::BLACK) {
+    if (originalColor == Color::BLACK) {
         deleteFixup(x);
     }
 
     if (x != nil_) {
         updateUpwards(x->parent);
     } else {
-        updateUpwards(root);
+        updateUpwards(root_);
     }
 }
 
@@ -602,7 +603,7 @@ Scheduler::Node* Scheduler::lowerBoundByStart(int start) const {
  * Update the maxEnd value of a node based on its event and children.
  */
 void Scheduler::updateNode(Node* node) {
-    node->maxEnd = max(node->event.range.end, node->left->maxEnd, node->right->maxEnd);
+    node->maxEnd = max3(node->event.range.end, node->left->maxEnd, node->right->maxEnd);
 }
 
 /*
@@ -642,6 +643,12 @@ void Scheduler::collectIntersecting(Node* x, const TimeRange& range, std::vector
     if (x->event.range.start < range.end) {
         collectIntersecting(x->right, range, out);
     }
+}
+
+void Scheduler::debugInsert(const Event& e) {
+    Node* node = new Node(e);
+    treeInsert(node);
+    insertFixup(node);
 }
 
 } // namespace rbt

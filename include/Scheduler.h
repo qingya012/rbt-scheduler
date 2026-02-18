@@ -215,6 +215,8 @@ public:
      */
     std::vector<Event> exportAllEvents() const;
 
+    void debugInsert(const Event& e); // for testing: insert without checks (e.g. for building tree from bulk data)
+
 private:
     // ---------- RB-tree internals ----------
     // Key is (startTime, id) to ensure total ordering.
@@ -258,6 +260,7 @@ private:
 
     Node* minimum(Node* x) const;
     Node* successor(Node* x) const;
+    void transplant(Node* u, Node* v); // helper for delete (replaces subtree rooted at u with v)
 
     // Key comparison
     static bool keyLess(const Key& a, const Key& b);
