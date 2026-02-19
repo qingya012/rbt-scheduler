@@ -4,6 +4,7 @@
 
 #include <algorithm>  // std::max
 #include <utility>    // std::move
+#include <iostream>
 
 namespace rbt {
 
@@ -301,8 +302,8 @@ void Scheduler::insertFixup(Node* node) {
                 // Case 2 & 3: Uncle is black
                 if (node == p->right) {
                     // Case 2: node is right child -> rotate left
+                    rotateLeft(p);
                     node = p;
-                    rotateLeft(node);
                     p = node->parent; // update parent after rotation
                     g = p->parent;    // update grandparent after rotation
                 }
@@ -325,8 +326,8 @@ void Scheduler::insertFixup(Node* node) {
                 // Case 2 & 3: Uncle is black
                 if (node == p->left) {
                     // Case 2: node is left child -> rotate right
+                    rotateRight(p);
                     node = p;
-                    rotateRight(node);
                     p = node->parent; // update parent after rotation
                     g = p->parent;    // update grandparent after rotation
                 }
@@ -337,6 +338,8 @@ void Scheduler::insertFixup(Node* node) {
             }
         }
     }
+
+    root_->color = Color::BLACK; // Ensure root is always black
 }
 
 /**
@@ -646,9 +649,16 @@ void Scheduler::collectIntersecting(Node* x, const TimeRange& range, std::vector
 }
 
 void Scheduler::debugInsert(const Event& e) {
+    cerr << "    debugInsert id = " << e.id << "\n";
     Node* node = new Node(e);
+
+    cerr << "    before treeInsert" << "\n";
     treeInsert(node);
+    cerr << "    after treeInsert" << "\n";
+
+    cerr << "    before insertFixup" << "\n";
     insertFixup(node);
+    cerr << "    after insertFixup" << "\n";
 }
 
 } // namespace rbt

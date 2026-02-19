@@ -7,6 +7,8 @@
 #include <optional>
 #include <unordered_map>
 
+using namespace std;
+
 namespace rbt {
 
 /**
