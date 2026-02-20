@@ -44,14 +44,29 @@ Scheduler::~Scheduler() {
 Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
     // TODO:
     // 1) validate e.range.isValid()
+    if (e.range.start >= e.range.end) return Status::INVALID_TIME_RANGE;
+
     // 2) if id already exists -> DUPLICATE_ID
+    if (index_.count(e.id) > 0) return Status::DUPLICATE_ID;
+
     // 3) if !allowOverlap and hasConflict(e.range) -> CONFLICT
+    if (!allowOverlap && hasConflict(e.range)) return Status::CONFLICT;
+
     // 4) create Node* z = new Node(e), set children/parent to nil_
+        Node* node = new Node(e);
+        node->left = nil_;
+        node->right = nil_;
+        node->parent = nil_;
+
     // 5) RB-tree insert by Key(start,id)
+    Node* insertedNode = treeInsert(node);
+
     // 6) update maxEnd up the path + during rotations
+    updateMaxEnd(insertedNode);
+
     // 7) add to index_
-    (void)e;
-    (void)allowOverlap;
+    index_[e.id] = insertedNode;
+
     return Status::OK;
 }
 
