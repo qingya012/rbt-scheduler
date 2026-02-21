@@ -218,6 +218,7 @@ public:
     std::vector<Event> exportAllEvents() const;
 
     void debugInsert(const Event& e); // for testing: insert without checks (e.g. for building tree from bulk data)
+    void dump() const; // for debugging: print all events in order
 
 private:
     // ---------- RB-tree internals ----------
@@ -279,8 +280,7 @@ private:
     bool overlaps(const TimeRange& a, const TimeRange& b) const;
     void collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const;
 
-    public:
-        void dumpInorder(Node* x) const; // for debugging: print tree in-order with maxEnd values
+    void dumpInorder(Node* x) const; // internal helper
 };
 
 } // namespace rbt

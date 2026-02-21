@@ -27,7 +27,7 @@ int main() {
     cout << scheduler.hasConflict(TimeRange{12, 18}) << endl; // should be 1 (overlaps with 10-20 and 15-25)
     cerr << "after conflict" << endl;
 
-    scheduler.dumpInorder(scheduler.root_);
+    scheduler.dump();
 
     cout << scheduler.hasConflict(TimeRange{25,29}) << endl; // should be 0 (no overlap)
 

@@ -212,6 +212,10 @@ std::vector<Event> Scheduler::exportAllEvents() const {
     return {};
 }
 
+void Scheduler::dump() const {
+    dumpInorder(root_);
+}
+
 // ------------------------------
 // RB-tree internals
 // ------------------------------
@@ -469,7 +473,7 @@ void Scheduler::treeInsert(Node* node) {
 
     node->parent = p;
 
-    if (curr == nil_) {
+    if (p == nil_) {
         root_ = node;
     } else if (keyLess(key, Key{p->event.range.start, p->event.id})) {
         p->left = node;
