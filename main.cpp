@@ -31,7 +31,7 @@ int main() {
 
     cout << scheduler.hasConflict(TimeRange{25,29}) << endl; // should be 0 (no overlap)
 
-    cout << scheduler.hasConflict(TimeRange{20,30}) << endl; // should be 1 (overlaps with 30-40)
+    cout << scheduler.hasConflict(TimeRange{20,30}) << endl; // should be 0 (no overlap)
 
     return 0;
 }

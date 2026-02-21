@@ -43,22 +43,19 @@ Scheduler::~Scheduler() {
 
 Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
     // TODO:
-    // 1) validate e.range.isValid()
     if (e.range.start >= e.range.end) return Status::INVALID_TIME_RANGE;
 
     // 2) if id already exists -> DUPLICATE_ID
 
-    // 3) if !allowOverlap and hasConflict(e.range) -> CONFLICT
+
     if (!allowOverlap && hasConflict(e.range)) return Status::CONFLICT;
 
     // 4) create Node* z = new Node(e), set children/parent to nil_
         Node* node = new Node(e);
 
-    // 5) RB-tree insert by Key(start,id)
     treeInsert(node);
     insertFixup(node);
 
-    // 6) update maxEnd up the path + during rotations
     updateUpwards(node);
 
     // 7) add to index_
@@ -66,15 +63,27 @@ Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
     return Status::OK;
 }
 
+/**
+ * Remove an event by its id.
+ *
+ * @return Status::OK if removed successfully, NOT_FOUND if no such id exists.
+ */
 Status Scheduler::removeEvent(EventId id) {
     // TODO:
     // 1) find key via index_ (if not found -> NOT_FOUND)
-    // 2) find Node* z in tree
-    // 3) RB-tree delete z (standard RB delete + fixup)
-    // 4) maintain maxEnd updates after structural changes
+
+
+    Node* node = findNodeById(root_, id);
+
+    if (node == nil_) {
+        return Status::NOT_FOUND;
+    }
+
+    treeDelete(node);
+
     // 5) erase from index_
-    (void)id;
-    return Status::NOT_FOUND;
+    
+    return Status::OK;
 }
 
 Status Scheduler::rescheduleEvent(EventId id, const TimeRange& newRange, bool allowOverlap) {
@@ -92,10 +101,38 @@ Status Scheduler::rescheduleEvent(EventId id, const TimeRange& newRange, bool al
     return Status::NOT_FOUND;
 }
 
+/**
+ * Helper to find a node by its event ID.
+ *
+ * @return the node if found, or nullptr if not found.
+ */
+Node* Scheduler::findNodeById(Node* node, EventId id) const {
+    if (node == nil_) return nullptr;
+
+    if (node->event.id == id) {
+        return node;
+    }
+
+    Node* leftResult = findNodeById(node->left, id);
+    if (leftResult != nil_) {
+        return leftResult;
+    }
+
+    return findNodeById(node->right, id);
+}
+
+/**
+ * Fetch an event by its id.
+ *
+ * @return an optional Event if found, or std::nullopt if no such id exists.
+ */
 std::optional<Event> Scheduler::getEvent(EventId id) const {
-    // TODO: use index_ -> find Node -> return node->event
-    (void)id;
-    return std::nullopt;
+    Node* node = findNodeById(root_, id);
+    if (node != nil_) {
+        return node->event;
+    }
+
+    return nullopt;
 }
 
 std::vector<Event> Scheduler::queryByStartInRange(const TimeRange& range) const {
