@@ -257,7 +257,7 @@ private:
     void insertFixup(Node* z);
     void deleteFixup(Node* x);
 
-    Node* treeInsert(Node* z);
+    void treeInsert(Node* z);
     void treeDelete(Node* z);
 
     Node* minimum(Node* x) const;
@@ -278,6 +278,9 @@ private:
     // Interval operations
     bool overlaps(const TimeRange& a, const TimeRange& b) const;
     void collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const;
+
+    public:
+        void dumpInorder(Node* x) const; // for debugging: print tree in-order with maxEnd values
 };
 
 } // namespace rbt

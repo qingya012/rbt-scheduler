@@ -47,25 +47,21 @@ Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
     if (e.range.start >= e.range.end) return Status::INVALID_TIME_RANGE;
 
     // 2) if id already exists -> DUPLICATE_ID
-    if (index_.count(e.id) > 0) return Status::DUPLICATE_ID;
 
     // 3) if !allowOverlap and hasConflict(e.range) -> CONFLICT
     if (!allowOverlap && hasConflict(e.range)) return Status::CONFLICT;
 
     // 4) create Node* z = new Node(e), set children/parent to nil_
         Node* node = new Node(e);
-        node->left = nil_;
-        node->right = nil_;
-        node->parent = nil_;
 
     // 5) RB-tree insert by Key(start,id)
-    Node* insertedNode = treeInsert(node);
+    treeInsert(node);
+    insertFixup(node);
 
     // 6) update maxEnd up the path + during rotations
-    updateMaxEnd(insertedNode);
+    updateUpwards(node);
 
     // 7) add to index_
-    index_[e.id] = insertedNode;
 
     return Status::OK;
 }
@@ -448,7 +444,7 @@ void Scheduler::deleteFixup(Node* node) {
 /**
  * Insert a new node into the tree. (call insertFixup in process/ after)
  */
-Scheduler::Node* Scheduler::treeInsert(Node* node) {
+void Scheduler::treeInsert(Node* node) {
 
     Key key{node->event.range.start, node->event.id};
 
@@ -480,13 +476,6 @@ Scheduler::Node* Scheduler::treeInsert(Node* node) {
     } else {
         p->right = node;
     }
-    
-
-    updateUpwards(node);
-
-    insertFixup(node);
-    
-    return node;
 }
 
 /**
@@ -674,6 +663,18 @@ void Scheduler::debugInsert(const Event& e) {
     cerr << "    before insertFixup" << "\n";
     insertFixup(node);
     cerr << "    after insertFixup" << "\n";
+}
+
+void Scheduler::dumpInorder(Node* x) const {
+    if (x == nil_) return;
+    dumpInorder(x->left);
+    std::cerr << "id=" << x->event.id
+              << " [" << x->event.range.start << "," << x->event.range.end << "]"
+              << " maxEnd=" << x->maxEnd
+              << " color=" << (x->color == Color::RED ? "R" : "B")
+              << " parent=" << (x->parent == nil_ ? -1 : x->parent->event.id)
+              << "\n";
+    dumpInorder(x->right);
 }
 
 } // namespace rbt
