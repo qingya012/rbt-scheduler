@@ -73,23 +73,23 @@ Status Scheduler::removeEvent(EventId id) {
     // 1) find key via index_ (if not found -> NOT_FOUND)
 
 
-    cerr << "removeEvent (id = " << id << ")\n";
+    // cerr << "removeEvent (id = " << id << ")\n";
 
     Node* node = findNodeById(root_, id);
-    cerr << "removeEvent (" << id << ") found node = " << node << "\n";
+    // cerr << "removeEvent (" << id << ") found node = " << node << "\n";
     
-    std::cerr << "nil_=" << nil_
-          << " found=" << node
-          << " (node==nil_? " << (node==nil_) << ")\n";
+    // cerr << "nil_=" << nil_
+    //       << " found=" << node
+    //       << " (node==nil_? " << (node==nil_) << ")\n";
 
     if (node == nil_) {
         return Status::NOT_FOUND;
     }
 
-    cerr << "removeEvent (" << id << "): deleting...\n";
+    // cerr << "removeEvent (" << id << "): deleting...\n";
     treeDelete(node);
     
-    cerr << "removeEvent (" << id << "): delete done\n";
+    // cerr << "removeEvent (" << id << "): delete done\n";
 
     // 5) erase from index_
 
@@ -626,7 +626,7 @@ Scheduler::Node* Scheduler::findNodeByKey(const Key& key) const {
  */
 Scheduler::Node* Scheduler::findNodeById(Scheduler::Node* node, EventId id) const {
     if (node == nullptr){
-        cerr << "BUG: nullptr child encountered in tree\n";
+        // cerr << "BUG: nullptr child encountered in tree\n";
         return nil_;
     }
 
