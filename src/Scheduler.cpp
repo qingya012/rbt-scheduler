@@ -41,6 +41,11 @@ Scheduler::~Scheduler() {
     // Also clear index_.
 }
 
+/**
+ * Add a new event. If allowOverlap=false, rejects if the event overlaps any existing event.
+ *
+ * @return Status::OK if added successfully, CONFLICT if overlaps and not allowed, INVALID_TIME_RANGE if invalid range, DUPLICATE_ID if id already exists.
+ */
 Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
     // TODO:
     if (e.range.start >= e.range.end) return Status::INVALID_TIME_RANGE;
@@ -99,16 +104,26 @@ Status Scheduler::removeEvent(EventId id) {
 Status Scheduler::rescheduleEvent(EventId id, const TimeRange& newRange, bool allowOverlap) {
     // TODO:
     // 1) validate newRange
+    if (newRange.start >= newRange.end) return Status::INVALID_TIME_RANGE;
+
     // 2) find existing event by id
+    Node* node = findNodeById(root_, id);
+    if(!node) return Status::NOT_FOUND;
+
     // 3) if !allowOverlap:
     //      - temporarily ignore the event itself
     //      - check conflicts for newRange
+
     // 4) easiest: remove(id) then add(updatedEvent)
     //    (make sure to preserve title/meta)
-    (void)id;
-    (void)newRange;
-    (void)allowOverlap;
-    return Status::NOT_FOUND;
+    Event oldEvent = node->event;
+
+    removeEvent(id);
+
+    Event newEvent = oldEvent;
+    newEvent.range = newRange;
+
+    return addEvent(newEvent, allowOverlap);
 }
 
 /**

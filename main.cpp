@@ -15,6 +15,8 @@ static void EXPECT(bool condition, const char* message) {
 }
 
 static void test_insert_and_conflict() {
+    cerr << "\n=== test_insert_and_conflict ===\n";
+
     Scheduler scheduler;
 
     Event e1{1, "e1", TimeRange{10,20}, {}};
@@ -52,12 +54,31 @@ static void test_remove() {
     EXPECT(scheduler.hasConflict(TimeRange{12, 18}) == false, "Should not detect conflict with range 12-18 after removal");
     EXPECT(scheduler.hasConflict(TimeRange{31, 39}) == true, "Should detect conflict with range 30-40");
 
-    
+}
+
+static void test_reschedule() {
+    cerr << "\n=== test_reschedule ===\n";
+
+    Scheduler scheduler;
+
+    Event e1{1, "e1", TimeRange{10,20}, {}};
+    Event e2{2, "e2", TimeRange{30,40}, {}};
+
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+    EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert e2 should succeed");
+
+    EXPECT(scheduler.rescheduleEvent(1, TimeRange{15,35}, false) == Status::CONFLICT, "Reschedule e1 to 15-35 should fail due to conflict");
+    EXPECT(scheduler.rescheduleEvent(1, TimeRange{20,30}, false) == Status::OK, "Reschedule e1 to 20-30 should succeed");
+    scheduler.dump();
+
+    EXPECT(scheduler.hasConflict(TimeRange{12, 18}) == false, "Should not detect conflict with range 12-18 after reschedule");
+    EXPECT(scheduler.hasConflict(TimeRange{31, 39}) == true, "Should detect conflict with range 30-40");
 }
 
 int main() {
     test_insert_and_conflict();
     test_remove();
+    test_reschedule();
 
     if (g_fail == 0) {
         cerr << "\nALL TESTS PASSED\n" << endl;
