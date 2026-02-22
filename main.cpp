@@ -2,36 +2,68 @@
 #include <iostream>
 
 using namespace rbt;
-using namespace std;
 
-int main() {
-    cerr << "START" << endl;
+static int g_fail = 0;
 
+static void EXPECT(bool condition, const char* message) {
+    if (!condition) {
+        cerr << "[FAIL] " << message << endl;
+        g_fail++;
+    } else {
+        cerr << "[PASS] " << message << endl;
+    }
+}
+
+static void test_insert_and_conflict() {
     Scheduler scheduler;
-    cerr << "after ctor" << endl;
 
     Event e1{1, "e1", TimeRange{10,20}, {}};
     Event e2{2, "e2", TimeRange{30,40}, {}};
     Event e3{3, "e3", TimeRange{15,25}, {}};
 
-    cout << (scheduler.addEvent(e1, false) == Status::OK) << endl; // should be 1 (success)
-    cerr << "after insert e1" << endl;
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+    EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert e2 should succeed");
+    EXPECT(scheduler.addEvent(e3, false) == Status::CONFLICT, "Insert e3 should fail due to conflict");
 
-    cout << (scheduler.addEvent(e2, false) == Status::OK) << endl; // should be 1 (success)
-    cerr << "after insert e2" << endl;
+    EXPECT(scheduler.hasConflict(TimeRange{12, 18}), "Should detect conflict with range 12-18");
+    EXPECT(!scheduler.hasConflict(TimeRange{25,29}), "Should not detect conflict with range 25-29");
+    EXPECT(!scheduler.hasConflict(TimeRange{20,30}), "Should not detect conflict with range 20-30");
+}
 
-    cout << (scheduler.addEvent(e3, false) == Status::OK) << endl; // should be 0 (conflict)
-    cerr << "after insert e3" << endl;
+static void test_remove() {
+    cerr << "\n=== test_remove ===\n";
 
-    cerr << "before conflict" << endl;
-    cout << scheduler.hasConflict(TimeRange{12, 18}) << endl; // should be 1 (overlaps with 10-20 and 15-25)
-    cerr << "after conflict" << endl;
+    Scheduler scheduler;
 
+    Event e1{1, "e1", TimeRange{10,20}, {}};
+    Event e2{2, "e2", TimeRange{30,40}, {}};
+
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+    EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert e2 should succeed");
+
+    EXPECT(scheduler.removeEvent(1) == Status::OK, "Remove e1 should succeed");
     scheduler.dump();
 
-    cout << scheduler.hasConflict(TimeRange{25,29}) << endl; // should be 0 (no overlap)
+    cerr << "containsId(1) = " << scheduler.getEvent(1).has_value() << "\n";
 
-    cout << scheduler.hasConflict(TimeRange{20,30}) << endl; // should be 0 (no overlap)
+    EXPECT(scheduler.removeEvent(1) == Status::NOT_FOUND, "Remove e1 again should fail");
+    scheduler.dump();
 
-    return 0;
+    EXPECT(scheduler.hasConflict(TimeRange{12, 18}) == false, "Should not detect conflict with range 12-18 after removal");
+    EXPECT(scheduler.hasConflict(TimeRange{31, 39}) == true, "Should detect conflict with range 30-40");
+
+    
+}
+
+int main() {
+    test_insert_and_conflict();
+    test_remove();
+
+    if (g_fail == 0) {
+        cerr << "\nALL TESTS PASSED\n" << endl;
+        return 0;
+    }
+
+    cerr << "\nFAILED: " << g_fail << endl;
+    return 1;
 }

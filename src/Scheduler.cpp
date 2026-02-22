@@ -73,16 +73,26 @@ Status Scheduler::removeEvent(EventId id) {
     // 1) find key via index_ (if not found -> NOT_FOUND)
 
 
+    cerr << "removeEvent (id = " << id << ")\n";
+
     Node* node = findNodeById(root_, id);
+    cerr << "removeEvent (" << id << ") found node = " << node << "\n";
+    
+    std::cerr << "nil_=" << nil_
+          << " found=" << node
+          << " (node==nil_? " << (node==nil_) << ")\n";
 
     if (node == nil_) {
         return Status::NOT_FOUND;
     }
 
+    cerr << "removeEvent (" << id << "): deleting...\n";
     treeDelete(node);
+    
+    cerr << "removeEvent (" << id << "): delete done\n";
 
     // 5) erase from index_
-    
+
     return Status::OK;
 }
 
@@ -99,26 +109,6 @@ Status Scheduler::rescheduleEvent(EventId id, const TimeRange& newRange, bool al
     (void)newRange;
     (void)allowOverlap;
     return Status::NOT_FOUND;
-}
-
-/**
- * Helper to find a node by its event ID.
- *
- * @return the node if found, or nullptr if not found.
- */
-Node* Scheduler::findNodeById(Node* node, EventId id) const {
-    if (node == nil_) return nullptr;
-
-    if (node->event.id == id) {
-        return node;
-    }
-
-    Node* leftResult = findNodeById(node->left, id);
-    if (leftResult != nil_) {
-        return leftResult;
-    }
-
-    return findNodeById(node->right, id);
 }
 
 /**
@@ -165,7 +155,7 @@ bool Scheduler::hasConflict(const TimeRange& range) const {
  *
  * @return an optional Event that overlaps with the range, or std::nullopt if no conflict.
  */
-std::optional<Event> Scheduler::findAnyConflict(const TimeRange& range) const {
+optional<Event> Scheduler::findAnyConflict(const TimeRange& range) const {
     Node* curr = root_;
 
     while (curr != nil_) {
@@ -183,13 +173,13 @@ std::optional<Event> Scheduler::findAnyConflict(const TimeRange& range) const {
     return std::nullopt;
 }
 
-std::vector<Event> Scheduler::listConflicts(const TimeRange& range) const {
+vector<Event> Scheduler::listConflicts(const TimeRange& range) const {
     // TODO: collect all intersecting events (could reuse queryIntersecting)
     (void)range;
     return {};
 }
 
-std::optional<Event> Scheduler::nextEvent(int t) const {
+optional<Event> Scheduler::nextEvent(int t) const {
     // TODO: use lowerBoundByStart(t), return that node’s event if exists
     (void)t;
     return std::nullopt;
@@ -210,7 +200,7 @@ Result<EventId> Scheduler::duplicateEvent(EventId id, int shiftMinutes, bool all
     return r;
 }
 
-std::vector<TimeRange> Scheduler::suggestSlots(const TimeRange& window, int durationMinutes, int k) const {
+vector<TimeRange> Scheduler::suggestSlots(const TimeRange& window, int durationMinutes, int k) const {
     // TODO (simple approach):
     // 1) validate window + duration
     // 2) cursor = window.start
@@ -240,11 +230,11 @@ void Scheduler::clear() {
     // TODO: delete all nodes, reset root_ = nil_, clear index_
 }
 
-std::size_t Scheduler::size() const {
+size_t Scheduler::size() const {
     return index_.size();
 }
 
-std::vector<Event> Scheduler::exportAllEvents() const {
+vector<Event> Scheduler::exportAllEvents() const {
     // TODO: in-order traversal, push all events
     return {};
 }
@@ -406,6 +396,7 @@ void Scheduler::transplant(Node* u, Node* v) {
     } else {
         u->parent->right = v;
     }
+
     v->parent = u->parent;
 }
 
@@ -543,7 +534,7 @@ void Scheduler::treeDelete(Node* node) {
         x = temp->right;
 
         if (temp->parent == node) {
-            x->parent = temp; // important for fixup
+            x->parent = temp;
             updateStart = temp; // maxEnd updates start from successor's position
         } else {
             transplant(temp, temp->right);
@@ -626,6 +617,33 @@ Scheduler::Node* Scheduler::findNodeByKey(const Key& key) const {
         }
     }
     return nullptr; // not found
+}
+
+/**
+ * Helper to find a node by its event ID.
+ *
+ * @return the node if found, or nullptr if not found.
+ */
+Scheduler::Node* Scheduler::findNodeById(Scheduler::Node* node, EventId id) const {
+    if (node == nullptr){
+        cerr << "BUG: nullptr child encountered in tree\n";
+        return nil_;
+    }
+
+    if (node == nil_) {
+        return nil_;
+    }
+
+    if (node->event.id == id) {
+        return node;
+    }
+
+    Node* leftResult = findNodeById(node->left, id);
+    if (leftResult != nil_) {
+        return leftResult;
+    }
+
+    return findNodeById(node->right, id);
 }
 
 /*
@@ -716,6 +734,10 @@ void Scheduler::dumpInorder(Node* x) const {
               << " parent=" << (x->parent == nil_ ? -1 : x->parent->event.id)
               << "\n";
     dumpInorder(x->right);
+}
+
+bool Scheduler::containsId(EventId id) const {
+    return findNodeById(root_, id) != nil_;
 }
 
 } // namespace rbt

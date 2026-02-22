@@ -149,19 +149,19 @@ public:
     /**
      * Fetch an event by id (returns empty if not found).
      */
-    std::optional<Event> getEvent(EventId id) const;
+    optional<Event> getEvent(EventId id) const;
 
     /**
      * Query events whose start time lies in [range.start, range.end).
      * (You can later enhance to true interval intersection queries.)
      */
-    std::vector<Event> queryByStartInRange(const TimeRange& range) const;
+    vector<Event> queryByStartInRange(const TimeRange& range) const;
 
     /**
      * Query events that intersect the given time range.
      * This is the "interval" query that benefits from maxEnd augmentation.
      */
-    std::vector<Event> queryIntersecting(const TimeRange& range) const;
+    vector<Event> queryIntersecting(const TimeRange& range) const;
 
     /**
      * Conflict checks.
@@ -170,13 +170,13 @@ public:
      * - listConflicts: returns all conflicts (may be O(log n + k))
      */
     bool hasConflict(const TimeRange& range) const;
-    std::optional<Event> findAnyConflict(const TimeRange& range) const;
-    std::vector<Event> listConflicts(const TimeRange& range) const;
+    optional<Event> findAnyConflict(const TimeRange& range) const;
+    vector<Event> listConflicts(const TimeRange& range) const;
 
     /**
      * Find next event whose start >= t (week-minutes).
      */
-    std::optional<Event> nextEvent(int t) const;
+    optional<Event> nextEvent(int t) const;
 
     /**
      * Duplicate an event. Common weekly use case:
@@ -190,7 +190,7 @@ public:
      * requiring a minimum duration in minutes.
      * Returns up to k suggestions.
      */
-    std::vector<TimeRange> suggestSlots(const TimeRange& window, int durationMinutes, int k = 5) const;
+    vector<TimeRange> suggestSlots(const TimeRange& window, int durationMinutes, int k = 5) const;
 
     /**
      * Optional helper: generate a week/day view from stored events.
@@ -207,6 +207,9 @@ public:
      * Size of scheduler (# of events).
      */
     std::size_t size() const;
+    
+    void debugInsert(const Event& e); // for testing: insert without checks (e.g. for building tree from bulk data)
+    void dump() const; // for debugging: print all events in order
 
     // ---------- Future plugin/adapter hooks (stubs) ----------
     // You can implement these later without changing the core logic.
@@ -217,8 +220,7 @@ public:
      */
     std::vector<Event> exportAllEvents() const;
 
-    void debugInsert(const Event& e); // for testing: insert without checks (e.g. for building tree from bulk data)
-    void dump() const; // for debugging: print all events in order
+    
 
 private:
     // ---------- RB-tree internals ----------
@@ -271,6 +273,7 @@ private:
     // Search
     Node* findNodeByKey(const Key& key) const;
     Node* lowerBoundByStart(int start) const;
+    Node* findNodeById(Node* x, EventId id) const; // internal helper for get/remove/reschedule
 
     // Augmentation maintenance
     void updateNode(Node* x);
@@ -281,6 +284,8 @@ private:
     void collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const;
 
     void dumpInorder(Node* x) const; // internal helper
+    bool containsId(EventId id) const; // internal helper for testing
+
 };
 
 } // namespace rbt
