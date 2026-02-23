@@ -44,26 +44,32 @@ Scheduler::~Scheduler() {
 /**
  * Add a new event. If allowOverlap=false, rejects if the event overlaps any existing event.
  *
+ * @param e The event to add. Must have a unique id and a valid time range (start < end).
+ * @param allowOverlap Whether to allow overlapping events. If false, the method will check for conflicts and reject if any overlap is detected.
  * @return Status::OK if added successfully, CONFLICT if overlaps and not allowed, INVALID_TIME_RANGE if invalid range, DUPLICATE_ID if id already exists.
  */
 Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
-    // TODO:
     if (e.range.start >= e.range.end) return Status::INVALID_TIME_RANGE;
 
-    // 2) if id already exists -> DUPLICATE_ID
+    if (findNodeById(root_, e.id) != nil_) return Status::DUPLICATE_ID;
 
 
     if (!allowOverlap && hasConflict(e.range)) return Status::CONFLICT;
 
-    // 4) create Node* z = new Node(e), set children/parent to nil_
-        Node* node = new Node(e);
+    Node* node = new Node(e);
+    node->left = nil_;
+    node->right = nil_;
+    node->parent = nil_;
+    node->maxEnd = e.range.end;
 
     treeInsert(node);
     insertFixup(node);
 
     updateUpwards(node);
 
-    // 7) add to index_
+    if (e.id >= nextId_) {
+        nextId_ = e.id + 1; 
+    }
 
     return Status::OK;
 }
@@ -71,32 +77,28 @@ Status Scheduler::addEvent(const Event& e, bool allowOverlap) {
 /**
  * Remove an event by its id.
  *
+ * @param id The ID of the event to remove.
  * @return Status::OK if removed successfully, NOT_FOUND if no such id exists.
  */
 Status Scheduler::removeEvent(EventId id) {
-    // TODO:
-    // 1) find key via index_ (if not found -> NOT_FOUND)
-
-
     // cerr << "removeEvent (id = " << id << ")\n";
+    auto it = index_.find(id);
+    if (it == index_.end()) return Status::NOT_FOUND;
 
-    Node* node = findNodeById(root_, id);
+    Node* node = it->second;
+
     // cerr << "removeEvent (" << id << ") found node = " << node << "\n";
     
     // cerr << "nil_=" << nil_
     //       << " found=" << node
     //       << " (node==nil_? " << (node==nil_) << ")\n";
 
-    if (node == nil_) {
-        return Status::NOT_FOUND;
-    }
-
     // cerr << "removeEvent (" << id << "): deleting...\n";
     treeDelete(node);
     
     // cerr << "removeEvent (" << id << "): delete done\n";
 
-    // 5) erase from index_
+    index_.erase(id);
 
     return Status::OK;
 }
@@ -200,19 +202,36 @@ optional<Event> Scheduler::nextEvent(int t) const {
     return std::nullopt;
 }
 
+/**    
+ * Duplicate an event.
+ *
+ * @param id The ID of the event to duplicate.
+ * @param shiftMinutes The number of minutes to shift the event's time range.
+ * @param allowOverlap Whether to allow overlapping events.
+ * @return A Result containing the ID of the new event, or an error status.
+ */
 Result<EventId> Scheduler::duplicateEvent(EventId id, int shiftMinutes, bool allowOverlap) {
-    // TODO:
-    // 1) fetch event by id
-    // 2) create new event with new id (you decide policy: e.g. max+1)
-    // 3) shift range by shiftMinutes
-    // 4) addEvent(newEvent)
-    Result<EventId> r;
-    r.status = Status::NOT_FOUND;
-    r.value = 0;
-    (void) id;
-    (void)shiftMinutes;
-    (void)allowOverlap;
-    return r;
+    Node* node = findNodeById(root_, id);
+    if (!node) return Result<EventId>{Status::NOT_FOUND, 0};
+
+    Event newEvent = node->event;
+
+    newEvent.id = nextId_++;
+
+    // shift range by shiftMinutes
+    newEvent.range.start += shiftMinutes;
+    newEvent.range.end += shiftMinutes;
+
+    // validate range
+    if (newEvent.range.start >= newEvent.range.end) {
+        return Result<EventId>{Status::INVALID_TIME_RANGE, 0};
+    }
+
+    Status addStatus = addEvent(newEvent, allowOverlap);
+    if (addStatus != Status::OK) {
+        return Result<EventId>{addStatus, 0};
+    }
+    return Result<EventId>{Status::OK, newEvent.id};
 }
 
 vector<TimeRange> Scheduler::suggestSlots(const TimeRange& window, int durationMinutes, int k) const {

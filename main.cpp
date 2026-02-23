@@ -75,10 +75,34 @@ static void test_reschedule() {
     EXPECT(scheduler.hasConflict(TimeRange{31, 39}) == true, "Should detect conflict with range 30-40");
 }
 
+static void test_duplicate() {
+    cerr << "\n=== test_duplicate ===\n";
+
+    Scheduler scheduler;
+
+    Event e1{1, "e1", TimeRange{10,20}, {}};
+
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+
+    auto dupResult = scheduler.duplicateEvent(1, 15, false);
+    EXPECT(dupResult.status == Status::OK, "Duplicate e1 with shift 15 should succeed");
+    EXPECT(dupResult.value != 0, "Duplicate should return new event ID");
+
+    auto dupEventOpt = scheduler.getEvent(dupResult.value);
+    EXPECT(dupEventOpt.has_value(), "Should be able to fetch duplicated event");
+    if (dupEventOpt.has_value()) {
+        Event dupEvent = dupEventOpt.value();
+        cerr << "start=" << dupEvent.range.start << " end=" << dupEvent.range.end << "\n";
+        EXPECT(dupEvent.range.start == 25 && dupEvent.range.end == 35, "Duplicated event should have correct shifted time range");
+        EXPECT(dupEvent.title == "e1", "Duplicated event should have same title");
+    }
+}
+
 int main() {
     test_insert_and_conflict();
     test_remove();
     test_reschedule();
+    test_duplicate();
 
     if (g_fail == 0) {
         cerr << "\nALL TESTS PASSED\n" << endl;

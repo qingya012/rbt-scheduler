@@ -250,6 +250,7 @@ private:
     // Sentinel NIL node pattern (common RB-tree approach). You can also use nullptrs instead.
     Node* nil_;
     Node* root_;
+    EventId nextId_ = 1; // for generating new IDs
 
     // Optional fast lookup by id -> Key (helps remove/get in O(1) + O(log n)).
     std::unordered_map<EventId, Key> index_;
