@@ -286,6 +286,7 @@ private:
 
     void dumpInorder(Node* x) const; // internal helper
     bool containsId(EventId id) const; // internal helper for testing
+    void postOrderDelete(Node* node); // helper for destructor: post-order traversal to delete nodes
 
 };
 

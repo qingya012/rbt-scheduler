@@ -22,7 +22,7 @@ static inline int max3(int a, int b, int c) {
 /**
  * Initialize an empty scheduler.
  * Allocates the sentinel NIL node and sets up the initial tree state.
-*/
+ */
 Scheduler::Scheduler() : nil_(nullptr), root_(nullptr) {
     nil_ = new Node(Event{}); // dummy event for nil
     nil_->color = Color::BLACK;
@@ -34,11 +34,15 @@ Scheduler::Scheduler() : nil_(nullptr), root_(nullptr) {
     root_ = nil_;
 }
 
+/**
+ * Clean up all resources used by the scheduler.
+ * Frees all nodes in the RB-tree and the sentinel NIL node.
+ */
 Scheduler::~Scheduler() {
-    // TODO: free all nodes in the RB-tree, then free nil_
-    // Important: avoid recursion if you prefer. Use an explicit stack/vector.
-    //
-    // Also clear index_.
+    clear();
+    delete nil_;
+    nil_ = nullptr;
+    root_ = nullptr;
 }
 
 /**
@@ -289,8 +293,20 @@ Week Scheduler::toWeekView() const {
     return w;
 }
 
+// helper for destructor: post-order traversal to delete nodes
+void Scheduler::postOrderDelete(Node* node) {
+    if (node == nil_) return;
+    postOrderDelete(node->left);
+    postOrderDelete(node->right);
+    delete node;
+}
+
+/* Clear all events */
 void Scheduler::clear() {
-    // TODO: delete all nodes, reset root_ = nil_, clear index_
+    postOrderDelete(root_);
+    root_ = nil_;
+    index_.clear();
+    nextId_ = 1;
 }
 
 size_t Scheduler::size() const {
