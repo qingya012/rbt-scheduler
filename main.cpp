@@ -98,11 +98,35 @@ static void test_duplicate() {
     }
 }
 
+static void test_destructor() {
+    cerr << "\n=== test_destructor ===\n";
+
+    {
+        Scheduler scheduler;
+        Event e1{1, "e1", TimeRange{10,20}, {}};
+        Event e2{2, "e2", TimeRange{30,40}, {}};
+        Event e3{3, "e3", TimeRange{50,60}, {}};
+
+        scheduler.clear();
+        EXPECT(scheduler.size() == 0, "Scheduler should be empty after clear");
+
+        for (int i = 0; i < 1000; i++) {
+            Event e{i+1, "event", TimeRange{10*i, 10*i + 5}, {}};
+            EXPECT(scheduler.addEvent(e, false) == Status::OK, "Insert event should succeed");
+        }
+
+        EXPECT(scheduler.size() == 1000, "Scheduler should contain 1000 events");
+    } // scheduler goes out of scope here, destructor should clean up
+
+    cerr << "If we reach here without memory issues, destructor works.\n";
+}
+
 int main() {
     test_insert_and_conflict();
     test_remove();
     test_reschedule();
     test_duplicate();
+    test_destructor();
 
     if (g_fail == 0) {
         cerr << "\nALL TESTS PASSED\n" << endl;
