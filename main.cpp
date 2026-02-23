@@ -107,6 +107,10 @@ static void test_destructor() {
         Event e2{2, "e2", TimeRange{30,40}, {}};
         Event e3{3, "e3", TimeRange{50,60}, {}};
 
+        EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+        EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert e2 should succeed");
+        EXPECT(scheduler.addEvent(e3, false) == Status::OK, "Insert e3 should succeed");
+
         scheduler.clear();
         EXPECT(scheduler.size() == 0, "Scheduler should be empty after clear");
 
@@ -121,12 +125,63 @@ static void test_destructor() {
     cerr << "If we reach here without memory issues, destructor works.\n";
 }
 
+static void test_nextEvent() {
+    cerr << "\n=== test_nextEvent ===\n";
+
+    Scheduler scheduler;
+
+    Event e1{1, "e1", TimeRange{10,20}, {}};
+    Event e2{2, "e2", TimeRange{30,40}, {}};
+    Event e3{3, "e3", TimeRange{50,60}, {}};
+
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+    EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert e2 should succeed");
+    EXPECT(scheduler.addEvent(e3, false) == Status::OK, "Insert e3 should succeed");
+
+    auto nextOpt = scheduler.nextEvent(25);
+    EXPECT(nextOpt.has_value(), "Should find next event after time 25");
+    if (nextOpt.has_value()) {
+        EXPECT(nextOpt->id == 2, "Next event after time 25 should be e2");
+    }
+
+    nextOpt = scheduler.nextEvent(45);
+    EXPECT(nextOpt.has_value(), "Should find next event after time 45");
+    if (nextOpt.has_value()) {
+        EXPECT(nextOpt->id == 3, "Next event after time 45 should be e3");
+    }
+
+    nextOpt = scheduler.nextEvent(60);
+    EXPECT(!nextOpt.has_value(), "Should not find next event after time 60");
+}
+
+static void test_query_functions() {
+    cerr << "\n=== test_query_functions ===\n";
+
+    Scheduler scheduler;
+
+    Event e1{1, "e1", TimeRange{10,20}, {}};
+    Event e2{2, "e2", TimeRange{30,40}, {}};
+    Event e3{3, "e3", TimeRange{55,65}, {}};
+
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert e1 should succeed");
+    EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert e2 should succeed");
+    EXPECT(scheduler.addEvent(e3, false) == Status::OK, "Insert e3 should succeed");
+
+    auto eventsInRange = scheduler.queryByStartInRange(TimeRange{0, 25});
+    EXPECT(eventsInRange.size() == 1, "Should find 1 event starting in range 0-25");
+
+    auto intersectingEvents = scheduler.queryIntersecting(TimeRange{35, 67});
+    EXPECT(intersectingEvents.size() == 2, "Should find 2 events intersecting range 35-67");
+}
+
 int main() {
     test_insert_and_conflict();
     test_remove();
     test_reschedule();
     test_duplicate();
     test_destructor();
+    test_nextEvent();
+    test_query_functions();
 
     if (g_fail == 0) {
         cerr << "\nALL TESTS PASSED\n" << endl;

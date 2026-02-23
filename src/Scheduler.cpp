@@ -170,20 +170,40 @@ std::optional<Event> Scheduler::getEvent(EventId id) const {
     return node->event;
 }
 
+/**
+ * Query all events whose start time is within the given range.
+ *
+ * @param range The time range to query.
+ * @return A vector of events that start within the range.
+ */
 std::vector<Event> Scheduler::queryByStartInRange(const TimeRange& range) const {
-    // TODO:
-    // 1) validate range
-    // 2) start from lowerBoundByStart(range.start)
-    // 3) iterate successor until event.start >= range.end
-    (void)range;
-    return {};
+    vector<Event> result;
+    if (!range.isValid()) return result;
+
+    Node* curr = lowerBoundByStart(range.start);
+    if (curr == nil_) return result;
+
+    while (curr != nil_ && curr->event.range.start < range.end) {
+        if (curr->event.range.start >= range.start) {
+            result.push_back(curr->event);
+        }
+        curr = successor(curr);
+    }
+
+    return result;
 }
 
+/**
+ * Query all events that intersect with the given range.
+ *
+ * @param range The time range to query.
+ * @return A vector of events that intersect with the range.
+ */
 std::vector<Event> Scheduler::queryIntersecting(const TimeRange& range) const {
-    // TODO: interval query using maxEnd augmentation
-    // collectIntersecting(root_, range, out)
-    (void)range;
-    return {};
+    vector<Event> result;
+    if (!range.isValid()) return result;
+    collectIntersecting(root_, range, result);
+    return result;
 }
 
 /**
@@ -224,9 +244,18 @@ vector<Event> Scheduler::listConflicts(const TimeRange& range) const {
     return {};
 }
 
+/**
+ * Find the next event whose start time is >= t.
+ *
+ * @param t The time (in week-minutes) to compare against.
+ * @return an optional Event that starts at or after t, or nullopt if no such event exists.
+ */
 optional<Event> Scheduler::nextEvent(int t) const {
-    // TODO: use lowerBoundByStart(t), return that node’s event if exists
-    (void)t;
+    Node* node = lowerBoundByStart(t);
+    if (node != nil_) {
+        return node->event;
+    }
+
     return nullopt;
 }
 
@@ -309,6 +338,7 @@ void Scheduler::clear() {
     nextId_ = 1;
 }
 
+/* Get the total number of events currently scheduled. */
 size_t Scheduler::size() const {
     return index_.size();
 }
@@ -742,7 +772,7 @@ Scheduler::Node* Scheduler::lowerBoundByStart(int start) const {
             curr = curr->right; // need larger start
         }
     }
-    return (candidate == nil_) ? nullptr : candidate;
+    return candidate;
 }
 
 /*
