@@ -284,6 +284,9 @@ private:
     bool overlaps(const TimeRange& a, const TimeRange& b) const;
     void collectIntersecting(Node* x, const TimeRange& range, std::vector<Event>& out) const;
 
+    // Traversal helpers
+    void collectInorder(Node* node, std::vector<Event>& result) const;
+
     void dumpInorder(Node* x) const; // internal helper
     bool containsId(EventId id) const; // internal helper for testing
     void postOrderDelete(Node* node); // helper for destructor: post-order traversal to delete nodes

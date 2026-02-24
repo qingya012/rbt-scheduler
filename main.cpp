@@ -174,6 +174,63 @@ static void test_query_functions() {
     EXPECT(intersectingEvents.size() == 2, "Should find 2 events intersecting range 35-67");
 }
 
+static void test_suggestSlots() {
+    cerr << "\n=== test_suggestSlots ===\n";
+
+    Scheduler scheduler;
+
+    // Add some busy events:
+    // Event A: 10-30
+    // Event B: 40-50
+    // Event C: 55-70
+    Event e1{1, "A", TimeRange{10,30}, {}};
+    Event e2{2, "B", TimeRange{40,50}, {}};
+    Event e3{3, "C", TimeRange{55,70}, {}};
+
+    EXPECT(scheduler.addEvent(e1, false) == Status::OK, "Insert A");
+    EXPECT(scheduler.addEvent(e2, false) == Status::OK, "Insert B");
+    EXPECT(scheduler.addEvent(e3, false) == Status::OK, "Insert C");
+
+    // Ask for slots in window [0, 80), require duration 5, up to 3 slots
+    auto slots = scheduler.suggestSlots(TimeRange{0, 80}, 5, 3);
+
+    // Expected gaps: [0,10], [30,40], [50,55], [70,80]
+    // With duration 5: [0,10] (10-0=10), [30,40] (10), [50,55] (5), [70,80] (10)
+    // Up to k=3 slots so result should be first three: [0,10],[30,40],[50,55]
+    EXPECT(slots.size() == 3, "Should find 3 slots");
+
+    if (slots.size() >= 3) {
+        EXPECT(slots[0].start == 0 && slots[0].end == 10,   "Slot 1: [0,10]");
+        EXPECT(slots[1].start == 30 && slots[1].end == 40,  "Slot 2: [30,40]");
+        EXPECT(slots[2].start == 50 && slots[2].end == 55,  "Slot 3: [50,55]");
+    }
+
+    // Ask for a slot that requires a longer duration (duration=15)
+    auto longslots = scheduler.suggestSlots(TimeRange{0, 80}, 15, 2);
+    // Only [0,10],[30,40],[70,80] have length at least 10, but only [30,40] and [70,80] are at least 10, none are >=15 except perhaps [70,80], which is 10. So zero or one slot?
+    // [0,10] = 10, [30,40]=10, [70,80]=10 => none of the slots meet >=15 requirement. Should be zero slots.
+    EXPECT(longslots.size() == 0, "No slots of duration >=15 available");
+
+    // Slot exactly matches duration
+    auto fiveslot = scheduler.suggestSlots(TimeRange{50,55}, 5, 1);
+    EXPECT(fiveslot.size() == 1, "One slot exactly 5 minutes");
+    if (fiveslot.size() == 1) {
+        EXPECT(fiveslot[0].start == 50 && fiveslot[0].end == 55, "Slot [50,55]");
+    }
+
+    // Window inside a busy event (should find no slot)
+    auto nowin = scheduler.suggestSlots(TimeRange{12,29}, 5, 2);
+    EXPECT(nowin.size() == 0, "No free slot inside a busy event");
+
+    // Window completely outside any event but smaller than required duration
+    auto tiny = scheduler.suggestSlots(TimeRange{80,82}, 3, 1);
+    EXPECT(tiny.size() == 0, "Tiny window does not fit required duration");
+
+    // Window is empty
+    auto empty = scheduler.suggestSlots(TimeRange{20,20}, 1, 2);
+    EXPECT(empty.size() == 0, "Empty window yields no slots");
+}
+
 int main() {
     test_insert_and_conflict();
     test_remove();
@@ -182,6 +239,7 @@ int main() {
     test_destructor();
     test_nextEvent();
     test_query_functions();
+    test_suggestSlots();
 
     if (g_fail == 0) {
         cerr << "\nALL TESTS PASSED\n" << endl;

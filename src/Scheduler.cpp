@@ -238,10 +238,13 @@ optional<Event> Scheduler::findAnyConflict(const TimeRange& range) const {
     return nullopt;
 }
 
+/**
+ * List all events that conflict with the given range.
+ *
+ * @return a vector of Events that overlap with the range.
+ */
 vector<Event> Scheduler::listConflicts(const TimeRange& range) const {
-    // TODO: collect all intersecting events (could reuse queryIntersecting)
-    (void)range;
-    return {};
+    return queryIntersecting(range);
 }
 
 /**
@@ -296,29 +299,96 @@ Result<EventId> Scheduler::duplicateEvent(EventId id, int shiftMinutes, bool all
     return Result<EventId>{Status::OK, newEvent.id};
 }
 
+/**
+ * Suggests up to k available time slots within the given window that fit the required duration and do not overlap with any existing event.
+ *
+ * The function collects all events that intersect with the specified window, sorts them by their start time, and finds gaps between these events
+ * (or between the start of the window and the first event, and between the end of the last event and the window end) that are at least durationMinutes long.
+ *
+ * @param window         The time range (inclusive) within which to suggest slots.
+ * @param durationMinutes The duration in minutes each suggested slot must be at least.
+ * @param k               The maximum number of slots to suggest.
+ * @return                A vector of up to k available TimeRanges (non-overlapping, within the window, of at least durationMinutes).
+ */
 vector<TimeRange> Scheduler::suggestSlots(const TimeRange& window, int durationMinutes, int k) const {
-    // TODO (simple approach):
-    // 1) validate window + duration
-    // 2) cursor = window.start
-    // 3) iterate events by start time within window:
-    //    - if cursor + duration <= event.start -> record [cursor, cursor+duration]
-    //    - cursor = max(cursor, event.end)
-    // 4) after loop: if cursor + duration <= window.end -> record
-    // Stop when collected k slots.
-    (void)window;
-    (void)durationMinutes;
-    (void)k;
-    return {};
+    vector<TimeRange> result;
+    if (!window.isValid() || durationMinutes <= 0 || k <= 0) return result;
+
+    vector<Event> busy = queryIntersecting(window);
+
+    // Sort busy events by start time, then id.
+    sort(busy.begin(), busy.end(), [](const Event& a, const Event& b) {
+        if (a.range.start != b.range.start) return a.range.start < b.range.start;
+        return a.id < b.id;
+    });
+
+    int cursor = window.start;
+
+    for (const auto& e : busy) {
+        // The overlap of the event within the window.
+        int s = max(e.range.start, window.start);
+        int t = min(e.range.end, window.end);
+
+        if (t <= window.start || s >= window.end) continue; // event is entirely outside
+
+        // If there's a gap from cursor to event start.
+        if (s > cursor) {
+            TimeRange gap{cursor, s};
+            if (gap.end - gap.start >= durationMinutes) {
+                result.push_back(gap);
+                if ((int)result.size() >= k) return result;
+            }
+        }
+
+        // Advance cursor to the end of the current event (within window)
+        if (t > cursor) cursor = t;
+        if (cursor >= window.end) break;
+    }
+
+    // Any remaining gap after last event until window end.
+    if (cursor < window.end) {
+        TimeRange gap{cursor, window.end};
+        if (gap.end - gap.start >= durationMinutes) {
+            result.push_back(gap);
+        }
+    }
+    // Only keep up to k slots.
+    if ((int)result.size() > k) result.resize(k);
+
+    return result;
 }
 
+// helper: in-order traversal to collect all events in sorted order
+void Scheduler::collectInorder(Node* node, vector<Event>& result) const {
+    if (node == nil_) return;
+    collectInorder(node->left, result);
+    result.push_back(node->event);
+    collectInorder(node->right, result);
+}
+
+/**
+ * Convert the current schedule into a week view format.
+ *
+ * @return A Week struct containing days with their corresponding event IDs.
+ */
 Week Scheduler::toWeekView() const {
-    // TODO:
-    // 1) init Week with dayIndex 0..6
-    // 2) iterate all events in order, map start day to days[day].eventIds
     Week w;
     for (int i = 0; i < DAYS_IN_WEEK; i++) {
         w.days[i].dayIndex = i;
+        w.days[i].eventIds.clear();
     }
+
+    vector<Event> all;
+    collectInorder(root_, all);
+
+    // map events to days based on start time
+    for (const Event& e : all) {
+        int day = e.range.start / MINUTES_PER_DAY;
+        if (day >= 0 && day < DAYS_IN_WEEK) {
+            w.days[day].eventIds.push_back(e.id);
+        }
+    }
+
     return w;
 }
 
@@ -343,9 +413,11 @@ size_t Scheduler::size() const {
     return index_.size();
 }
 
+/* Export all events in sorted order (by start time). Useful for adapter layers. */
 vector<Event> Scheduler::exportAllEvents() const {
-    // TODO: in-order traversal, push all events
-    return {};
+    vector<Event> result;
+    collectInorder(root_, result);
+    return result;
 }
 
 // for debugging: in-order traversal print
