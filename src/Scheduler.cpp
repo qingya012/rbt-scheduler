@@ -5,14 +5,39 @@
 #include <algorithm>  // std::max
 #include <utility>    // std::move
 #include <iostream>
+#include <cstdio>     // std::snprintf
+#include <fstream>    // std::ifstream, std::ofstream
+#include <unordered_set>
+
+#include <nlohmann/json.hpp>
 
 namespace rbt {
+
+using nlohmann::json;
 
 // ------------------------------
 // Small local helpers (optional)
 // ------------------------------
 static inline int max3(int a, int b, int c) {
     return std::max(a, std::max(b, c));
+}
+
+// Convert week-minutes into "Day HH:MM" string for debugging/visualization.
+std::string formatWeekMinutes(int minutes) {
+    if (minutes < 0 || minutes >= MINUTES_PER_WEEK) {
+        return "Invalid";
+    }
+    static const char* kDayNames[DAYS_IN_WEEK] = {
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+    };
+    int dayIndex = minutes / MINUTES_PER_DAY;
+    int minuteOfDay = minutes % MINUTES_PER_DAY;
+    int hour = minuteOfDay / MINUTES_PER_HOUR;
+    int min = minuteOfDay % MINUTES_PER_HOUR;
+
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%s %02d:%02d", kDayNames[dayIndex], hour, min);
+    return std::string(buf);
 }
 
 // ------------------------------
@@ -420,6 +445,108 @@ vector<Event> Scheduler::exportAllEvents() const {
     return result;
 }
 
+std::string Scheduler::exportToJson() const {
+    std::string out;
+    out += "[";
+    bool first = true;
+    exportNodeToJson(root_, out, first);
+    out += "]";
+    return out;
+}
+
+bool Scheduler::saveToFile(const std::string& filename) const {
+    std::ofstream ofs(filename);
+    if (!ofs.is_open()) {
+        return false;
+    }
+
+    json arr = json::array();
+
+    std::vector<Event> events;
+    collectInorder(root_, events);
+
+    for (const auto& e : events) {
+        json je;
+        je["id"] = e.id;
+        je["title"] = e.title;
+        je["startTime"] = e.range.start;
+        je["endTime"] = e.range.end;
+        je["startLabel"] = formatWeekMinutes(e.range.start);
+        je["endLabel"] = formatWeekMinutes(e.range.end);
+        arr.push_back(std::move(je));
+    }
+
+    ofs << arr.dump(2);
+    return ofs.good();
+}
+
+bool Scheduler::loadFromFile(const std::string& filename) {
+    std::ifstream ifs(filename);
+    if (!ifs.is_open()) {
+        return false;
+    }
+
+    json arr;
+    try {
+        ifs >> arr;
+    } catch (...) {
+        return false;
+    }
+
+    if (!arr.is_array()) {
+        return false;
+    }
+
+    std::vector<Event> parsed;
+    parsed.reserve(arr.size());
+
+    std::unordered_set<EventId> seenIds;
+
+    for (const auto& je : arr) {
+        if (!je.is_object()) {
+            return false;
+        }
+
+        if (!je.contains("id") || !je.contains("title") ||
+            !je.contains("startTime") || !je.contains("endTime")) {
+            return false;
+        }
+
+        Event e;
+        try {
+            e.id = je.at("id").get<EventId>();
+            e.title = je.at("title").get<std::string>();
+            int start = je.at("startTime").get<int>();
+            int end = je.at("endTime").get<int>();
+            e.range = TimeRange{start, end};
+        } catch (...) {
+            return false;
+        }
+
+        if (!e.range.isValid()) {
+            return false;
+        }
+
+        if (!seenIds.insert(e.id).second) {
+            return false; // duplicate id
+        }
+
+        parsed.push_back(std::move(e));
+    }
+
+    // At this point, data is valid. Rebuild the tree.
+    clear();
+
+    for (const auto& e : parsed) {
+        if (addEvent(e, /*allowOverlap=*/true) != Status::OK) {
+            clear();
+            return false;
+        }
+    }
+
+    return true;
+}
+
 // for debugging: in-order traversal print
 void Scheduler::dump() const {
     dumpInorder(root_);
@@ -744,11 +871,10 @@ void Scheduler::treeDelete(Node* node) {
         deleteFixup(x);
     }
 
-    if (x != nil_) {
-        updateUpwards(x->parent);
-    } else {
-        updateUpwards(root_);
-    }
+    // As a safety net, recompute maxEnd for the whole tree after deletion.
+    // This guarantees correctness of the interval augmentation even if some
+    // structural edge case was missed by the incremental updates above.
+    recomputeSubtreeMaxEnd(root_);
 }
 
 /*
@@ -864,6 +990,41 @@ void Scheduler::updateUpwards(Node* node) {
         updateNode(node);
         node = node->parent;
     }
+}
+
+/*
+ * Recompute maxEnd for an entire subtree in a single post-order pass.
+ * This is O(size_of_subtree) and is used as a robust fallback after deletes.
+ */
+int Scheduler::recomputeSubtreeMaxEnd(Node* node) {
+    if (node == nil_) return 0;
+    int leftMax = recomputeSubtreeMaxEnd(node->left);
+    int rightMax = recomputeSubtreeMaxEnd(node->right);
+    node->maxEnd = max3(node->event.range.end, leftMax, rightMax);
+    return node->maxEnd;
+}
+
+void Scheduler::exportNodeToJson(Node* node, std::string& out, bool& first) const {
+    if (node == nil_) return;
+
+    exportNodeToJson(node->left, out, first);
+
+    if (!first) {
+        out += ",";
+    }
+    first = false;
+
+    out += "{";
+    out += "\"id\":" + std::to_string(node->event.id) + ",";
+    out += "\"title\":\"" + node->event.title + "\",";
+    out += "\"startTime\":" + std::to_string(node->event.range.start) + ",";
+    out += "\"endTime\":" + std::to_string(node->event.range.end) + ",";
+    out += "\"color\":\"";
+    out += (node->color == Color::RED ? "RED" : "BLACK");
+    out += "\"";
+    out += "}";
+
+    exportNodeToJson(node->right, out, first);
 }
 
 /*

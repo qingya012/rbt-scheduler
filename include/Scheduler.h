@@ -113,10 +113,15 @@ static inline int combineDayAndMinute(int day, int minute) {
 }
 
 /**
+ * Convert a minute offset (0..MINUTES_PER_WEEK-1) into a human-readable
+ * "Day HH:MM" string (e.g., "Monday 08:30").
+ */
+std::string formatWeekMinutes(int minutes);
+
+/**
  * Scheduler: a weekly event scheduler core.
  *
  * Design goals:
- * - No I/O (no printing, no file parsing)
  * - Plugin-friendly: clean API, structured data
  * - Efficient conflict detection via RB-tree interval augmentation (maxEnd)
  */
@@ -199,6 +204,30 @@ public:
     Week toWeekView() const;
 
     /**
+     * Export all events as a JSON array string.
+     * Each element includes: id, title, startTime, endTime, and node color.
+     * Intended primarily for visualization/debugging of the RB-tree.
+     */
+    std::string exportToJson() const;
+
+    /**
+     * Persist all events to a JSON file.
+     * Each event includes: id, title, startTime, endTime, plus readable labels.
+     *
+     * @return true on success, false on I/O or parse errors.
+     */
+    bool saveToFile(const std::string& filename) const;
+
+    /**
+     * Load events from a JSON file and rebuild the tree.
+     * The file must contain an array of objects with id, title, startTime, endTime.
+     * Existing events are cleared only if the file is valid.
+     *
+     * @return true on success, false if the file is missing, malformed, or contains invalid data.
+     */
+    bool loadFromFile(const std::string& filename);
+
+    /**
      * Clear all events.
      */
     void clear();
@@ -279,6 +308,7 @@ private:
     // Augmentation maintenance
     void updateNode(Node* x);
     void updateUpwards(Node* x);
+    int recomputeSubtreeMaxEnd(Node* x); // full subtree recomputation (used as a safety net after deletes)
 
     // Interval operations
     bool overlaps(const TimeRange& a, const TimeRange& b) const;
@@ -286,6 +316,7 @@ private:
 
     // Traversal helpers
     void collectInorder(Node* node, std::vector<Event>& result) const;
+    void exportNodeToJson(Node* node, std::string& out, bool& first) const;
 
     void dumpInorder(Node* x) const; // internal helper
     bool containsId(EventId id) const; // internal helper for testing
