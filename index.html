@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RBT Scheduler – Weekly Dashboard</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface:  '#1e2030',
+            panel:    '#252839',
+            border:   '#2e3250',
+            accent:   '#7c83fd',
+            conflict: '#f87171',
+            muted:    '#9ca3af',
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- FullCalendar -->
+  <link    href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+  <script  src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+  <style>
+    /* ── Base & calendar container ───────────────────────────────── */
+    body { background-color: #1e2030; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+
+    #calendar-wrap { background: #252839; border-radius: 0.75rem; padding: 1rem; }
+
+    /* FullCalendar dark overrides */
+    .fc { --fc-border-color: #2e3250; --fc-page-bg-color: transparent;
+          --fc-neutral-bg-color: #1e2030; --fc-neutral-text-color: #9ca3af;
+          --fc-today-bg-color: rgba(124,131,253,.10);
+          --fc-event-border-color: transparent; }
+
+    .fc-col-header-cell-cushion,
+    .fc-timegrid-slot-label-cushion,
+    .fc-daygrid-day-number { color: #9ca3af; font-size: 0.75rem; text-decoration: none; }
+
+    .fc-col-header-cell { background: #1e2030; border-color: #2e3250 !important; }
+    .fc-timegrid-slot   { border-color: #2e3250 !important; }
+    .fc-scrollgrid      { border-color: #2e3250 !important; }
+    .fc-scrollgrid-sync-table td, .fc-scrollgrid-sync-table th { border-color: #2e3250 !important; }
+    .fc-timegrid-col    { border-color: #2e3250 !important; }
+
+    /* Toolbar buttons */
+    .fc .fc-button { background: #2e3250 !important; border: 1px solid #3d4270 !important;
+                     color: #9ca3af !important; border-radius: 0.5rem !important; font-size: 0.8rem !important; }
+    .fc .fc-button:hover { background: #3d4270 !important; color: #e2e8f0 !important; }
+    .fc .fc-button-active { background: #7c83fd !important; color: #fff !important; border-color: #7c83fd !important; }
+    .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 600 !important; color: #e2e8f0 !important; }
+
+    /* Event blocks */
+    .fc-event { border-radius: 6px !important; font-size: 0.78rem !important;
+                font-weight: 500 !important; padding: 2px 6px !important; cursor: pointer; }
+    .fc-event .fc-event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Conflict highlight */
+    .fc-event.conflict { background: #f87171 !important; color: #fff !important; }
+
+    /* Tooltip */
+    #tooltip { pointer-events: none; transition: opacity .15s ease; }
+
+    /* Upload zone drag-over */
+    #drop-zone.drag-over { border-color: #7c83fd; background: rgba(124,131,253,.08); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1e2030; }
+    ::-webkit-scrollbar-thumb { background: #3d4270; border-radius: 3px; }
+  </style>
+</head>
+
+<body class="dark h-full">
+
+<!-- ── Tooltip ─────────────────────────────────────────────────── -->
+<div id="tooltip"
+     class="fixed z-50 hidden bg-surface border border-border rounded-xl shadow-2xl p-3 w-56 text-xs">
+  <p id="tt-title"  class="font-semibold text-white mb-1 text-sm"></p>
+  <p id="tt-start"  class="text-muted"></p>
+  <p id="tt-end"    class="text-muted"></p>
+  <p id="tt-dur"    class="text-muted"></p>
+  <p id="tt-badge"  class="mt-1 hidden text-red-400 font-medium">⚠ Conflict detected</p>
+</div>
+
+<!-- ── Shell ────────────────────────────────────────────────────── -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────── -->
+  <aside class="w-64 shrink-0 bg-panel border-r border-border flex flex-col gap-6 p-5 overflow-y-auto">
+
+    <!-- Logo -->
+    <div class="flex items-center gap-2 pt-1">
+      <span class="text-accent text-xl font-bold">⬛</span>
+      <div>
+        <p class="font-semibold text-white text-sm leading-tight">RBT Scheduler</p>
+        <p class="text-muted text-xs">Weekly Dashboard</p>
+      </div>
+    </div>
+
+    <!-- Upload zone -->
+    <div>
+      <p class="text-xs text-muted uppercase tracking-widest mb-2">Load Schedule</p>
+      <div id="drop-zone"
+           class="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-accent transition-colors">
+        <svg class="mx-auto mb-2 text-muted" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1"/>
+        </svg>
+        <p class="text-xs text-muted">Drag &amp; drop <code class="text-accent">data.json</code></p>
+        <p class="text-xs text-muted mt-0.5">or click to browse</p>
+        <input id="file-input" type="file" accept=".json" class="hidden" />
+      </div>
+      <p id="upload-status" class="text-xs text-muted text-center mt-2 h-4"></p>
+    </div>
+
+    <!-- Stats -->
+    <div>
+      <p class="text-xs text-muted uppercase tracking-widest mb-3">Statistics</p>
+      <div class="space-y-3">
+        <div class="bg-surface rounded-lg p-3">
+          <p class="text-muted text-xs">Total Events</p>
+          <p id="stat-total" class="text-2xl font-bold text-accent mt-0.5">0</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3">
+          <p class="text-muted text-xs">Conflicts</p>
+          <p id="stat-conflicts" class="text-2xl font-bold text-conflict mt-0.5">0</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3">
+          <p class="text-muted text-xs">Total Busy Time</p>
+          <p id="stat-busy" class="text-2xl font-bold text-white mt-0.5">0h 0m</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3">
+          <p class="text-muted text-xs">Busiest Day</p>
+          <p id="stat-day" class="text-lg font-bold text-white mt-0.5">—</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event list -->
+    <div class="flex-1 min-h-0">
+      <p class="text-xs text-muted uppercase tracking-widest mb-2">Events</p>
+      <ul id="event-list" class="space-y-1 text-xs text-muted">
+        <li class="italic">No data loaded.</li>
+      </ul>
+    </div>
+
+    <p class="text-xs text-muted text-center">RBT-Scheduler © 2025</p>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <main class="flex-1 flex flex-col overflow-hidden p-5 gap-4">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between shrink-0">
+      <div>
+        <h1 class="text-xl font-bold text-white">Weekly Schedule</h1>
+        <p id="week-label" class="text-xs text-muted mt-0.5">Current week</p>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-today"
+                class="px-3 py-1.5 text-xs rounded-lg bg-panel border border-border text-muted hover:text-white hover:border-accent transition-colors">
+          Today
+        </button>
+        <button id="btn-sample"
+                class="px-3 py-1.5 text-xs rounded-lg bg-accent text-white hover:opacity-90 transition-opacity">
+          Load Sample
+        </button>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div id="calendar-wrap" class="flex-1 min-h-0 overflow-auto">
+      <div id="calendar" class="h-full"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Script ────────────────────────────────────────────────────── -->
+<script>
+// ── Constants ────────────────────────────────────────────────────
+const MINS_PER_DAY  = 1440;
+const DAY_NAMES     = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+// Palette – one colour per day (Mon→Sun), conflict handled separately
+const DAY_COLORS = ['#7c83fd','#22d3ee','#a78bfa','#34d399','#fb923c','#f472b6','#60a5fa'];
+
+// ── Week-minute → ISO datetime ─────────────────────────────────
+function weekMinutesToDate(weekMinutes, mondayOfWeek) {
+  const dayOffset = Math.floor(weekMinutes / MINS_PER_DAY);  // 0=Mon … 6=Sun
+  const minOfDay  = weekMinutes % MINS_PER_DAY;
+  const d = new Date(mondayOfWeek);
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(0, 0, 0, 0);
+  d.setMinutes(d.getMinutes() + minOfDay);
+  return d;
+}
+
+// Return the Monday of the week containing `now`
+function getMondayOfWeek(now) {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay();                    // 0=Sun … 6=Sat
+  const diffToMonday = (dow === 0) ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diffToMonday);
+  return d;
+}
+
+// Duration label helper
+function fmtDuration(minutes) {
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
+
+// ── Conflict detection (O(n²) – fine for small weekly sets) ──────
+function detectConflicts(events) {
+  const conflictIds = new Set();
+  for (let i = 0; i < events.length; i++) {
+    for (let j = i + 1; j < events.length; j++) {
+      const a = events[i], b = events[j];
+      if (a.startTime < b.endTime && b.startTime < a.endTime) {
+        conflictIds.add(a.id);
+        conflictIds.add(b.id);
+      }
+    }
+  }
+  return conflictIds;
+}
+
+// ── Parse raw events into FullCalendar event objects ─────────────
+function buildFCEvents(rawEvents, monday) {
+  const conflictIds = detectConflicts(rawEvents);
+
+  return rawEvents.map(ev => {
+    const dayIndex  = Math.floor(ev.startTime / MINS_PER_DAY);   // 0–6
+    const isConflict = conflictIds.has(ev.id);
+    const color = isConflict ? '#f87171' : DAY_COLORS[dayIndex % DAY_COLORS.length];
+
+    return {
+      id:            String(ev.id),
+      title:         ev.title,
+      start:         weekMinutesToDate(ev.startTime, monday),
+      end:           weekMinutesToDate(ev.endTime,   monday),
+      backgroundColor: color,
+      borderColor:     color,
+      textColor:       '#fff',
+      classNames:      isConflict ? ['conflict'] : [],
+      extendedProps: {
+        startLabel:  ev.startLabel || '',
+        endLabel:    ev.endLabel   || '',
+        durationMin: ev.endTime - ev.startTime,
+        isConflict,
+      },
+    };
+  });
+}
+
+// ── Statistics ───────────────────────────────────────────────────
+function updateStats(rawEvents, conflictIds) {
+  document.getElementById('stat-total').textContent = rawEvents.length;
+  document.getElementById('stat-conflicts').textContent = conflictIds.size;
+
+  const totalMins = rawEvents.reduce((s, e) => s + (e.endTime - e.startTime), 0);
+  document.getElementById('stat-busy').textContent =
+    totalMins ? fmtDuration(totalMins) : '0h 0m';
+
+  // Busiest day
+  const dayCount = Array(7).fill(0);
+  rawEvents.forEach(e => { dayCount[Math.floor(e.startTime / MINS_PER_DAY)]++; });
+  const maxIdx = dayCount.indexOf(Math.max(...dayCount));
+  document.getElementById('stat-day').textContent =
+    rawEvents.length ? DAY_NAMES[maxIdx] : '—';
+}
+
+// ── Event list (sidebar) ──────────────────────────────────────────
+function updateEventList(rawEvents, conflictIds) {
+  const ul = document.getElementById('event-list');
+  if (!rawEvents.length) {
+    ul.innerHTML = '<li class="italic">No data loaded.</li>';
+    return;
+  }
+  ul.innerHTML = rawEvents.map(ev => {
+    const dot = conflictIds.has(ev.id)
+      ? '<span class="inline-block w-2 h-2 rounded-full bg-conflict mr-1.5 shrink-0"></span>'
+      : `<span class="inline-block w-2 h-2 rounded-full mr-1.5 shrink-0" style="background:${DAY_COLORS[Math.floor(ev.startTime/MINS_PER_DAY)%7]}"></span>`;
+    return `<li class="flex items-center gap-1 text-xs py-1 border-b border-border last:border-0">
+              ${dot}<span class="truncate text-white">${ev.title}</span>
+              <span class="ml-auto shrink-0 text-muted">${fmtDuration(ev.endTime - ev.startTime)}</span>
+            </li>`;
+  }).join('');
+}
+
+// ── Tooltip logic ─────────────────────────────────────────────────
+const tooltip  = document.getElementById('tooltip');
+const ttTitle  = document.getElementById('tt-title');
+const ttStart  = document.getElementById('tt-start');
+const ttEnd    = document.getElementById('tt-end');
+const ttDur    = document.getElementById('tt-dur');
+const ttBadge  = document.getElementById('tt-badge');
+
+document.addEventListener('mousemove', e => {
+  if (!tooltip.classList.contains('hidden')) {
+    const off = 14;
+    let left = e.clientX + off, top = e.clientY + off;
+    if (left + 224 > window.innerWidth)  left = e.clientX - 224 - off;
+    if (top  + 140 > window.innerHeight) top  = e.clientY - 140 - off;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
+  }
+});
+
+function showTooltip(info) {
+  const ep = info.event.extendedProps;
+  ttTitle.textContent = info.event.title;
+  ttStart.textContent = `Start: ${ep.startLabel || info.event.startStr}`;
+  ttEnd.textContent   = `End:   ${ep.endLabel   || info.event.endStr}`;
+  ttDur.textContent   = `Duration: ${fmtDuration(ep.durationMin)}`;
+  ttBadge.classList.toggle('hidden', !ep.isConflict);
+  tooltip.classList.remove('hidden');
+}
+
+function hideTooltip() { tooltip.classList.add('hidden'); }
+
+// ── FullCalendar setup ────────────────────────────────────────────
+let calendar;
+let currentMonday = getMondayOfWeek(new Date());
+
+function initCalendar() {
+  const el = document.getElementById('calendar');
+  calendar = new FullCalendar.Calendar(el, {
+    initialView:    'timeGridWeek',
+    firstDay:       1,          // week starts Monday
+    headerToolbar: {
+      left:   'prev,next',
+      center: 'title',
+      right:  'timeGridWeek,timeGridDay',
+    },
+    height:         '100%',
+    allDaySlot:     false,
+    slotMinTime:    '07:00:00',
+    slotMaxTime:    '23:00:00',
+    slotDuration:   '00:30:00',
+    expandRows:     true,
+    nowIndicator:   true,
+    initialDate:    currentMonday,
+    eventMouseEnter: showTooltip,
+    eventMouseLeave: hideTooltip,
+    datesSet: info => {
+      const label = info.start.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+      document.getElementById('week-label').textContent = 'Week of ' + label;
+      currentMonday = getMondayOfWeek(info.start);
+    },
+  });
+  calendar.render();
+}
+
+// ── Load events into calendar ─────────────────────────────────────
+let lastRaw = [];
+
+function loadEvents(rawEvents) {
+  lastRaw = rawEvents;
+  const conflictIds = detectConflicts(rawEvents);
+  const fcEvents = buildFCEvents(rawEvents, currentMonday);
+
+  calendar.removeAllEvents();
+  fcEvents.forEach(ev => calendar.addEvent(ev));
+
+  updateStats(rawEvents, conflictIds);
+  updateEventList(rawEvents, conflictIds);
+
+  document.getElementById('upload-status').textContent =
+    `✓ Loaded ${rawEvents.length} event${rawEvents.length !== 1 ? 's' : ''}`;
+}
+
+// ── File input / drop zone ────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click',      () => fileInput.click());
+dropZone.addEventListener('dragover',   e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave',  ()  => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) readFile(fileInput.files[0]);
+});
+
+function readFile(file) {
+  const status = document.getElementById('upload-status');
+  status.textContent = 'Reading…';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('Expected a JSON array.');
+      loadEvents(data);
+    } catch (err) {
+      status.textContent = '✗ Invalid JSON: ' + err.message;
+    }
+  };
+  reader.onerror = () => { status.textContent = '✗ Failed to read file.'; };
+  reader.readAsText(file);
+}
+
+// ── "Load Sample" button ──────────────────────────────────────────
+// Hard-coded sample mirrors what the C++ data generator produces,
+// so the dashboard works out of the box without running the binary.
+const SAMPLE_DATA = [
+  { id:1, title:'CS Lecture',          startTime: 540,  endTime:  630,  startLabel:'Monday 09:00',    endLabel:'Monday 10:30'     },
+  { id:2, title:'Gym Session',         startTime:2280,  endTime: 2400,  startLabel:'Tuesday 14:00',   endLabel:'Tuesday 16:00'    },
+  { id:3, title:'Team Meeting',        startTime:3480,  endTime: 3540,  startLabel:'Wednesday 10:00', endLabel:'Wednesday 11:00'  },
+  { id:4, title:'Dinner with Friends', startTime:6840,  endTime: 6960,  startLabel:'Friday 18:00',    endLabel:'Friday 20:00'     },
+  { id:5, title:'Weekend Run',         startTime:7860,  endTime: 7980,  startLabel:'Saturday 11:00',  endLabel:'Saturday 13:00'   },
+  // Intentional conflict with Team Meeting (same window, Wed 10:30–11:30)
+  { id:6, title:'⚠ Design Review',     startTime:3510,  endTime: 3630,  startLabel:'Wednesday 10:30', endLabel:'Wednesday 11:30'  },
+];
+
+document.getElementById('btn-sample').addEventListener('click', () => {
+  loadEvents(SAMPLE_DATA);
+  document.getElementById('upload-status').textContent = '✓ Sample data loaded';
+});
+
+document.getElementById('btn-today').addEventListener('click', () => {
+  calendar.today();
+});
+
+// ── Init ─────────────────────────────────────────────────────────
+initCalendar();
+</script>
+</body>
+</html>

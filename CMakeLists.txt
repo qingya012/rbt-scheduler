@@ -37,6 +37,10 @@ target_link_libraries(rbt_scheduler_lib
     nlohmann_json::nlohmann_json
 )
 
+# Main scheduler executable (optional; links to the same library)
+add_executable(scheduler main.cpp)
+target_link_libraries(scheduler PRIVATE rbt_scheduler_lib)
+
 enable_testing()
 
 add_executable(rbt_scheduler_tests

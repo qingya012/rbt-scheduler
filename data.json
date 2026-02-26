@@ -1,0 +1,42 @@
+[
+  {
+    "endLabel": "Monday 10:30",
+    "endTime": 630,
+    "id": 1,
+    "startLabel": "Monday 09:00",
+    "startTime": 540,
+    "title": "CS Lecture"
+  },
+  {
+    "endLabel": "Tuesday 16:00",
+    "endTime": 2400,
+    "id": 2,
+    "startLabel": "Tuesday 14:00",
+    "startTime": 2280,
+    "title": "Gym Session"
+  },
+  {
+    "endLabel": "Wednesday 11:00",
+    "endTime": 3540,
+    "id": 3,
+    "startLabel": "Wednesday 10:00",
+    "startTime": 3480,
+    "title": "Team Meeting"
+  },
+  {
+    "endLabel": "Friday 20:00",
+    "endTime": 6960,
+    "id": 4,
+    "startLabel": "Friday 18:00",
+    "startTime": 6840,
+    "title": "Dinner with Friends"
+  },
+  {
+    "endLabel": "Saturday 13:00",
+    "endTime": 7980,
+    "id": 5,
+    "startLabel": "Saturday 11:00",
+    "startTime": 7860,
+    "title": "Weekend Run"
+  }
+]
