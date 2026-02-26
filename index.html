@@ -18,6 +18,7 @@
             border:   '#2e3250',
             accent:   '#7c83fd',
             conflict: '#f87171',
+            pending:  '#fbbf24',
             muted:    '#9ca3af',
           }
         }
@@ -26,16 +27,18 @@
   </script>
 
   <!-- FullCalendar -->
-  <link    href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
-  <script  src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <link   href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
   <style>
-    /* ── Base & calendar container ───────────────────────────────── */
     body { background-color: #1e2030; color: #e2e8f0; font-family: 'Inter', sans-serif; }
 
+    /* ── Sidebar widths ─────────────────────────────────────────── */
+    #sidebar { width: 17rem; min-width: 17rem; }
+
+    /* ── Calendar ───────────────────────────────────────────────── */
     #calendar-wrap { background: #252839; border-radius: 0.75rem; padding: 1rem; }
 
-    /* FullCalendar dark overrides */
     .fc { --fc-border-color: #2e3250; --fc-page-bg-color: transparent;
           --fc-neutral-bg-color: #1e2030; --fc-neutral-text-color: #9ca3af;
           --fc-today-bg-color: rgba(124,131,253,.10);
@@ -48,32 +51,105 @@
     .fc-col-header-cell { background: #1e2030; border-color: #2e3250 !important; }
     .fc-timegrid-slot   { border-color: #2e3250 !important; }
     .fc-scrollgrid      { border-color: #2e3250 !important; }
-    .fc-scrollgrid-sync-table td, .fc-scrollgrid-sync-table th { border-color: #2e3250 !important; }
+    .fc-scrollgrid-sync-table td,
+    .fc-scrollgrid-sync-table th { border-color: #2e3250 !important; }
     .fc-timegrid-col    { border-color: #2e3250 !important; }
 
-    /* Toolbar buttons */
     .fc .fc-button { background: #2e3250 !important; border: 1px solid #3d4270 !important;
                      color: #9ca3af !important; border-radius: 0.5rem !important; font-size: 0.8rem !important; }
-    .fc .fc-button:hover { background: #3d4270 !important; color: #e2e8f0 !important; }
+    .fc .fc-button:hover  { background: #3d4270 !important; color: #e2e8f0 !important; }
     .fc .fc-button-active { background: #7c83fd !important; color: #fff !important; border-color: #7c83fd !important; }
     .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 600 !important; color: #e2e8f0 !important; }
 
-    /* Event blocks */
     .fc-event { border-radius: 6px !important; font-size: 0.78rem !important;
                 font-weight: 500 !important; padding: 2px 6px !important; cursor: pointer; }
     .fc-event .fc-event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Conflict highlight */
+    /* Success (validated by C++ engine) – green */
+    .fc-event.success   { background: #34d399 !important; color: #064e3b !important; }
+
+    /* Conflict (rejected by C++ engine) – red */
     .fc-event.conflict { background: #f87171 !important; color: #fff !important; }
 
-    /* Tooltip */
+    /* Pending (not yet validated) – dashed amber tint */
+    .fc-event.pending {
+      background: rgba(251,191,36,0.18) !important;
+      border: 2px dashed #fbbf24 !important;
+      color: #fde68a !important;
+    }
+
+    /* ── Now Indicator ──────────────────────────────────────────── */
+    .fc-timegrid-now-indicator-container { pointer-events: none !important; cursor: default !important; }
+    .fc-timegrid-now-indicator-arrow {
+      border-color: rgba(124,131,253,.85) !important;
+      border-top-color: transparent !important;
+      border-bottom-color: transparent !important;
+      pointer-events: none !important;
+    }
+    .fc-timegrid-now-indicator-line {
+      border-color: rgba(124,131,253,.55) !important;
+      border-top-width: 2px !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      position: relative; overflow: visible;
+      z-index: 9 !important;
+    }
+    .fc-timegrid-now-indicator-line:hover::after {
+      content: "Current Time";
+      position: absolute; top: -25px; left: 10px;
+      background: #475569; color: #fff;
+      padding: 4px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; white-space: nowrap;
+      pointer-events: none; box-shadow: 0 2px 4px rgba(0,0,0,.35); z-index: 100;
+    }
+
+    /* ── Tooltip ────────────────────────────────────────────────── */
     #tooltip { pointer-events: none; transition: opacity .15s ease; }
 
-    /* Upload zone drag-over */
-    #drop-zone.drag-over { border-color: #7c83fd; background: rgba(124,131,253,.08); }
+    /* ── Form inputs ────────────────────────────────────────────── */
+    .form-input {
+      width: 100%; background: #161726;
+      border: 1px solid #2e3250; border-radius: 0.5rem;
+      color: #e2e8f0; padding: 0.42rem 0.6rem;
+      font-size: 0.78rem; outline: none;
+      transition: border-color 0.15s;
+      appearance: none; -webkit-appearance: none;
+    }
+    .form-input:focus { border-color: #7c83fd; }
+    .form-input option { background: #161726; }
+    .form-label {
+      display: block; font-size: 0.65rem; color: #9ca3af;
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.25rem;
+    }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    /* ── Sidebar section headings ───────────────────────────────── */
+    .section-head {
+      font-size: 0.65rem; color: #9ca3af;
+      text-transform: uppercase; letter-spacing: 0.09em;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #2e3250;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── Stat card ──────────────────────────────────────────────── */
+    .stat-card { background: #161726; border-radius: 0.5rem; padding: 0.6rem 0.75rem; }
+    .stat-val  { font-size: 1.4rem; font-weight: 700; line-height: 1.2; margin-top: 0.1rem; }
+
+    /* ── Add-event button pulse on success ──────────────────────── */
+    @keyframes pulse-green {
+      0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+      50%      { box-shadow: 0 0 0 6px rgba(52,211,153,.35); }
+    }
+    .pulse-ok { animation: pulse-green 0.6s ease; }
+
+    /* Shake on error */
+    @keyframes shake {
+      0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)}
+    }
+    .shake { animation: shake 0.35s ease; }
+
+    /* ── Scrollbar ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: #1e2030; }
     ::-webkit-scrollbar-thumb { background: #3d4270; border-radius: 3px; }
   </style>
@@ -81,81 +157,182 @@
 
 <body class="dark h-full">
 
-<!-- ── Tooltip ─────────────────────────────────────────────────── -->
+<!-- ── Tooltip ──────────────────────────────────────────────────── -->
 <div id="tooltip"
-     class="fixed z-50 hidden bg-surface border border-border rounded-xl shadow-2xl p-3 w-56 text-xs">
-  <p id="tt-title"  class="font-semibold text-white mb-1 text-sm"></p>
-  <p id="tt-start"  class="text-muted"></p>
-  <p id="tt-end"    class="text-muted"></p>
-  <p id="tt-dur"    class="text-muted"></p>
-  <p id="tt-badge"  class="mt-1 hidden text-red-400 font-medium">⚠ Conflict detected</p>
+     class="fixed z-50 hidden bg-surface border border-border rounded-xl shadow-2xl p-3 w-60 text-xs">
+  <p id="tt-title" class="font-semibold text-white mb-1 text-sm"></p>
+  <p id="tt-start" class="text-muted"></p>
+  <p id="tt-end"   class="text-muted"></p>
+  <p id="tt-dur"   class="text-muted"></p>
+  <div class="flex gap-2 mt-1.5">
+    <p id="tt-pending" class="hidden text-amber-400 font-medium">◎ Pending validation</p>
+    <p id="tt-badge"   class="hidden text-red-400   font-medium">⚠ Conflict detected</p>
+  </div>
 </div>
 
 <!-- ── Shell ────────────────────────────────────────────────────── -->
 <div class="flex h-screen overflow-hidden">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────── -->
-  <aside class="w-64 shrink-0 bg-panel border-r border-border flex flex-col gap-6 p-5 overflow-y-auto">
+  <!-- ════════════════════════════════════════════════════════════
+       SIDEBAR
+  ═════════════════════════════════════════════════════════════ -->
+  <aside id="sidebar"
+         class="shrink-0 bg-panel border-r border-border flex flex-col overflow-hidden">
 
-    <!-- Logo -->
-    <div class="flex items-center gap-2 pt-1">
-      <span class="text-accent text-xl font-bold">⬛</span>
+    <!-- Logo ─────────────────────────────────────────────────── -->
+    <div class="flex items-center gap-2 px-5 pt-5 pb-4 border-b border-border shrink-0">
+      <div class="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center shrink-0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c83fd" stroke-width="2.5">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
       <div>
         <p class="font-semibold text-white text-sm leading-tight">RBT Scheduler</p>
         <p class="text-muted text-xs">Weekly Dashboard</p>
       </div>
     </div>
 
-    <!-- Upload zone -->
-    <div>
-      <p class="text-xs text-muted uppercase tracking-widest mb-2">Load Schedule</p>
-      <div id="drop-zone"
-           class="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-accent transition-colors">
-        <svg class="mx-auto mb-2 text-muted" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1"/>
+    <!-- Scrollable content ───────────────────────────────────── -->
+    <div class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-5 min-h-0">
+
+      <!-- ① ADD NEW EVENT ──────────────────────────────────── -->
+      <section>
+        <p class="section-head">Add New Event</p>
+
+        <form id="add-event-form" novalidate class="space-y-3">
+          <!-- Title -->
+          <div>
+            <label class="form-label" for="f-title">Title</label>
+            <input id="f-title" type="text" placeholder="e.g. Study Session"
+                   class="form-input" autocomplete="off" />
+          </div>
+
+          <!-- Day -->
+          <div>
+            <label class="form-label" for="f-day">Day</label>
+            <select id="f-day" class="form-input">
+              <option value="0">Monday</option>
+              <option value="1">Tuesday</option>
+              <option value="2">Wednesday</option>
+              <option value="3">Thursday</option>
+              <option value="4">Friday</option>
+              <option value="5">Saturday</option>
+              <option value="6">Sunday</option>
+            </select>
+          </div>
+
+          <!-- Start / End -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="form-label" for="f-start">Start</label>
+              <input id="f-start" type="time" value="09:00" class="form-input" />
+            </div>
+            <div>
+              <label class="form-label" for="f-end">End</label>
+              <input id="f-end" type="time" value="10:00" class="form-input" />
+            </div>
+          </div>
+
+          <!-- Validation error -->
+          <p id="form-error" class="text-red-400 text-xs hidden leading-snug"></p>
+
+          <!-- Submit -->
+          <button id="btn-add-event" type="submit"
+                  class="w-full py-2 rounded-lg bg-accent text-white text-xs font-semibold
+                         hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add Event
+          </button>
+        </form>
+      </section>
+
+      <!-- Divider -->
+      <div class="border-t border-border -mx-4"></div>
+
+      <!-- ② CURRENT STATS ──────────────────────────────────── -->
+      <section>
+        <p class="section-head">Current Stats</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="stat-card col-span-2">
+            <p class="text-muted text-xs">Total Events</p>
+            <p id="stat-total" class="stat-val text-accent">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-muted text-xs">Pending</p>
+            <p id="stat-pending" class="stat-val text-amber-400">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-muted text-xs">Conflicts</p>
+            <p id="stat-conflicts" class="stat-val text-conflict">0</p>
+          </div>
+          <div class="stat-card col-span-2">
+            <p class="text-muted text-xs">Total Busy Time</p>
+            <p id="stat-busy" class="stat-val text-white text-xl">0h 0m</p>
+          </div>
+          <div class="stat-card col-span-2">
+            <p class="text-muted text-xs">Busiest Day</p>
+            <p id="stat-day" class="stat-val text-white text-base">—</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Divider -->
+      <div class="border-t border-border -mx-4"></div>
+
+      <!-- ③ EVENT LIST ─────────────────────────────────────── -->
+      <section class="flex flex-col min-h-0 flex-1">
+        <p class="section-head shrink-0">Events</p>
+        <ul id="event-list"
+            class="space-y-1 text-xs overflow-y-auto flex-1 min-h-0 pr-0.5">
+          <li class="italic text-muted">No events yet.</li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- Footer actions ──────────────────────────────────────── -->
+    <div class="shrink-0 px-4 pb-4 pt-3 border-t border-border space-y-2">
+
+      <!-- Sync (load from C++ output) -->
+      <button id="btn-sync"
+              class="w-full py-2 rounded-lg border border-border text-muted text-xs
+                     hover:border-accent hover:text-white transition-colors
+                     flex items-center justify-center gap-1.5">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 4v5h.582M20 20v-5h-.581M4.582 9A8 8 0 0120 12M19.419 15A8 8 0 014 12"/>
         </svg>
-        <p class="text-xs text-muted">Drag &amp; drop <code class="text-accent">data.json</code></p>
-        <p class="text-xs text-muted mt-0.5">or click to browse</p>
+        Sync from C++
         <input id="file-input" type="file" accept=".json" class="hidden" />
-      </div>
-      <p id="upload-status" class="text-xs text-muted text-center mt-2 h-4"></p>
-    </div>
+      </button>
 
-    <!-- Stats -->
-    <div>
-      <p class="text-xs text-muted uppercase tracking-widest mb-3">Statistics</p>
-      <div class="space-y-3">
-        <div class="bg-surface rounded-lg p-3">
-          <p class="text-muted text-xs">Total Events</p>
-          <p id="stat-total" class="text-2xl font-bold text-accent mt-0.5">0</p>
-        </div>
-        <div class="bg-surface rounded-lg p-3">
-          <p class="text-muted text-xs">Conflicts</p>
-          <p id="stat-conflicts" class="text-2xl font-bold text-conflict mt-0.5">0</p>
-        </div>
-        <div class="bg-surface rounded-lg p-3">
-          <p class="text-muted text-xs">Total Busy Time</p>
-          <p id="stat-busy" class="text-2xl font-bold text-white mt-0.5">0h 0m</p>
-        </div>
-        <div class="bg-surface rounded-lg p-3">
-          <p class="text-muted text-xs">Busiest Day</p>
-          <p id="stat-day" class="text-lg font-bold text-white mt-0.5">—</p>
-        </div>
-      </div>
-    </div>
+      <!-- Apply / Export -->
+      <button id="btn-export"
+              class="w-full py-2 rounded-lg bg-accent/90 text-white text-xs font-semibold
+                     hover:bg-accent transition-colors flex items-center justify-center gap-1.5">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 16v-8m0 8-3-3m3 3 3-3M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1"/>
+        </svg>
+        Apply to C++ Engine
+      </button>
 
-    <!-- Event list -->
-    <div class="flex-1 min-h-0">
-      <p class="text-xs text-muted uppercase tracking-widest mb-2">Events</p>
-      <ul id="event-list" class="space-y-1 text-xs text-muted">
-        <li class="italic">No data loaded.</li>
-      </ul>
-    </div>
+      <!-- Status line -->
+      <p id="sync-status" class="text-xs text-center text-muted h-4"></p>
 
-    <p class="text-xs text-muted text-center">RBT-Scheduler © 2025</p>
+      <p class="text-xs text-center opacity-25 select-none" style="color:#9ca3af">
+        RBT Scheduler © 2026
+      </p>
+    </div>
   </aside>
 
-  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <!-- ════════════════════════════════════════════════════════════
+       MAIN
+  ═════════════════════════════════════════════════════════════ -->
   <main class="flex-1 flex flex-col overflow-hidden p-5 gap-4">
 
     <!-- Header -->
@@ -164,13 +341,21 @@
         <h1 class="text-xl font-bold text-white">Weekly Schedule</h1>
         <p id="week-label" class="text-xs text-muted mt-0.5">Current week</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center">
+        <!-- Pending badge in header -->
+        <span id="pending-badge"
+              class="hidden items-center gap-1 px-2.5 py-1 rounded-full
+                     bg-amber-400/10 border border-amber-400/30 text-amber-400 text-xs font-medium">
+          <span id="pending-badge-count">0</span> Pending
+        </span>
         <button id="btn-today"
-                class="px-3 py-1.5 text-xs rounded-lg bg-panel border border-border text-muted hover:text-white hover:border-accent transition-colors">
+                class="px-3 py-1.5 text-xs rounded-lg bg-panel border border-border
+                       text-muted hover:text-white hover:border-accent transition-colors">
           Today
         </button>
         <button id="btn-sample"
-                class="px-3 py-1.5 text-xs rounded-lg bg-accent text-white hover:opacity-90 transition-opacity">
+                class="px-3 py-1.5 text-xs rounded-lg bg-panel border border-border
+                       text-muted hover:text-white hover:border-accent transition-colors">
           Load Sample
         </button>
       </div>
@@ -184,133 +369,272 @@
   </main>
 </div>
 
-<!-- ── Script ────────────────────────────────────────────────────── -->
+<!-- ── Script ───────────────────────────────────────────────────── -->
 <script>
-// ── Constants ────────────────────────────────────────────────────
-const MINS_PER_DAY  = 1440;
-const DAY_NAMES     = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-
-// Palette – one colour per day (Mon→Sun), conflict handled separately
+// ═══════════════════════════════════════════════════════════════════
+// Constants
+// ═══════════════════════════════════════════════════════════════════
+const MINS_PER_DAY = 1440;
+const MINS_PER_WEEK = MINS_PER_DAY * 7;
+const DAY_NAMES  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DAY_COLORS = ['#7c83fd','#22d3ee','#a78bfa','#34d399','#fb923c','#f472b6','#60a5fa'];
+const LS_KEY_CONFIRMED = 'rbt_confirmed_events'; // validated / synced from C++
+const LS_KEY_PENDING   = 'rbt_pending_events';   // added via UI, not yet validated
 
-// ── Week-minute → ISO datetime ─────────────────────────────────
-function weekMinutesToDate(weekMinutes, mondayOfWeek) {
-  const dayOffset = Math.floor(weekMinutes / MINS_PER_DAY);  // 0=Mon … 6=Sun
-  const minOfDay  = weekMinutes % MINS_PER_DAY;
-  const d = new Date(mondayOfWeek);
-  d.setDate(d.getDate() + dayOffset);
+// ═══════════════════════════════════════════════════════════════════
+// Time helpers
+// ═══════════════════════════════════════════════════════════════════
+function weekMinutesToDate(mins, monday) {
+  const d = new Date(monday);
+  d.setDate(d.getDate() + Math.floor(mins / MINS_PER_DAY));
   d.setHours(0, 0, 0, 0);
-  d.setMinutes(d.getMinutes() + minOfDay);
+  d.setMinutes(mins % MINS_PER_DAY);
   return d;
 }
 
-// Return the Monday of the week containing `now`
 function getMondayOfWeek(now) {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);
-  const dow = d.getDay();                    // 0=Sun … 6=Sat
-  const diffToMonday = (dow === 0) ? -6 : 1 - dow;
-  d.setDate(d.getDate() + diffToMonday);
+  const dow = d.getDay();
+  d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
   return d;
 }
 
-// Duration label helper
-function fmtDuration(minutes) {
-  const h = Math.floor(minutes / 60), m = minutes % 60;
+function fmtDuration(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
   return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
 }
 
-// ── Conflict detection (O(n²) – fine for small weekly sets) ──────
+function fmtTime(timeStr) {
+  // "09:05" → "09:05" (already HH:MM, keep leading zeros)
+  return timeStr;
+}
+
+function timeStrToWeekMins(dayIdx, timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return dayIdx * MINS_PER_DAY + h * 60 + m;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// State
+//   confirmedRaw  – loaded from C++ data.json (validated by engine)
+//   pendingRaw    – added via sidebar form (not yet validated by C++)
+// ═══════════════════════════════════════════════════════════════════
+let confirmedRaw = loadConfirmedFromStorage();
+let pendingRaw   = loadPendingFromStorage();
+
+function allRaw()    { return [...confirmedRaw, ...pendingRaw]; }
+function pendingIds(){ return new Set(pendingRaw.map(e => e.id)); }
+
+function loadConfirmedFromStorage() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY_CONFIRMED) || '[]'); }
+  catch { return []; }
+}
+function saveConfirmedToStorage() {
+  localStorage.setItem(LS_KEY_CONFIRMED, JSON.stringify(confirmedRaw));
+}
+
+function loadPendingFromStorage() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY_PENDING) || '[]'); }
+  catch { return []; }
+}
+function savePendingToStorage() {
+  localStorage.setItem(LS_KEY_PENDING, JSON.stringify(pendingRaw));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Conflict detection  (half-open intervals: [start, end))
+// ═══════════════════════════════════════════════════════════════════
 function detectConflicts(events) {
-  const conflictIds = new Set();
-  for (let i = 0; i < events.length; i++) {
+  const ids = new Set();
+  for (let i = 0; i < events.length; i++)
     for (let j = i + 1; j < events.length; j++) {
       const a = events[i], b = events[j];
       if (a.startTime < b.endTime && b.startTime < a.endTime) {
-        conflictIds.add(a.id);
-        conflictIds.add(b.id);
+        ids.add(a.id); ids.add(b.id);
       }
     }
-  }
-  return conflictIds;
+  return ids;
 }
 
-// ── Parse raw events into FullCalendar event objects ─────────────
-function buildFCEvents(rawEvents, monday) {
-  const conflictIds = detectConflicts(rawEvents);
+// ═══════════════════════════════════════════════════════════════════
+// Build a FullCalendar event object
+// Colour is driven by the explicit `status` field written by the C++ engine.
+//   success  → solid green  (#34d399)  — C++ confirmed, no conflict
+//   conflict → solid red    (#f87171)  — C++ detected overlap
+//   pending  → dashed amber (rgba tint) — not yet audited
+//   (no status) → day-palette colour (legacy / sample data)
+// ═══════════════════════════════════════════════════════════════════
+function buildFCEvent(ev, monday) {
+  const dayIdx = Math.floor(ev.startTime / MINS_PER_DAY);
+  const status = ev.status || (ev.isPending ? 'pending' : 'success');
 
-  return rawEvents.map(ev => {
-    const dayIndex  = Math.floor(ev.startTime / MINS_PER_DAY);   // 0–6
-    const isConflict = conflictIds.has(ev.id);
-    const color = isConflict ? '#f87171' : DAY_COLORS[dayIndex % DAY_COLORS.length];
+  let bgColor, borderColor, textColor, classNames;
+  switch (status) {
+    case 'success':
+      bgColor = '#34d399'; borderColor = '#34d399'; textColor = '#064e3b';
+      classNames = ['success'];
+      break;
+    case 'conflict':
+      bgColor = '#f87171'; borderColor = '#f87171'; textColor = '#fff';
+      classNames = ['conflict'];
+      break;
+    case 'pending':
+      bgColor = 'rgba(251,191,36,0.15)'; borderColor = '#fbbf24'; textColor = '#fde68a';
+      classNames = ['pending'];
+      break;
+    default:
+      bgColor = DAY_COLORS[dayIdx % DAY_COLORS.length];
+      borderColor = bgColor; textColor = '#fff';
+      classNames = [];
+  }
 
-    return {
-      id:            String(ev.id),
-      title:         ev.title,
-      start:         weekMinutesToDate(ev.startTime, monday),
-      end:           weekMinutesToDate(ev.endTime,   monday),
-      backgroundColor: color,
-      borderColor:     color,
-      textColor:       '#fff',
-      classNames:      isConflict ? ['conflict'] : [],
-      extendedProps: {
-        startLabel:  ev.startLabel || '',
-        endLabel:    ev.endLabel   || '',
-        durationMin: ev.endTime - ev.startTime,
-        isConflict,
-      },
-    };
+  const prefix = status === 'pending'  ? '◎ '
+               : status === 'conflict' ? '⚠ '
+               : '';
+
+  return {
+    id:              String(ev.id),
+    title:           prefix + ev.title,
+    start:           weekMinutesToDate(ev.startTime, monday),
+    end:             weekMinutesToDate(ev.endTime,   monday),
+    backgroundColor: bgColor,
+    borderColor,
+    textColor,
+    classNames,
+    extendedProps: {
+      rawTitle:     ev.title,
+      startLabel:   ev.startLabel  || '',
+      endLabel:     ev.endLabel    || '',
+      durationMin:  ev.endTime - ev.startTime,
+      status,
+      conflictWith: ev.conflictWith || null,
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Statistics  (driven purely by the status field on each event)
+// ═══════════════════════════════════════════════════════════════════
+function updateStats(events) {
+  const pending   = events.filter(e => (e.status || (e.isPending ? 'pending' : 'success')) === 'pending').length;
+  const conflicts = events.filter(e => (e.status || '') === 'conflict').length;
+  const confirmed = events.filter(e => (e.status || (e.isPending ? 'pending' : 'success')) === 'success').length;
+
+  document.getElementById('stat-total').textContent     = events.length;
+  document.getElementById('stat-pending').textContent   = pending;
+  document.getElementById('stat-conflicts').textContent = conflicts;
+
+  const totalMins = events.reduce((s, e) => s + Math.max(0, e.endTime - e.startTime), 0);
+  document.getElementById('stat-busy').textContent =
+    events.length ? fmtDuration(totalMins) : '0h 0m';
+
+  const dayMins = Array(7).fill(0);
+  events.forEach(e => {
+    const d = Math.floor(e.startTime / MINS_PER_DAY);
+    if (d >= 0 && d < 7) dayMins[d] += Math.max(0, e.endTime - e.startTime);
+  });
+  const maxMins = Math.max(...dayMins);
+  document.getElementById('stat-day').textContent =
+    events.length && maxMins > 0 ? DAY_NAMES[dayMins.indexOf(maxMins)] : '—';
+
+  // Header pending badge
+  const badge = document.getElementById('pending-badge');
+  document.getElementById('pending-badge-count').textContent = pending;
+  badge.classList.toggle('hidden', pending === 0);
+  badge.classList.toggle('flex',   pending > 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Sidebar event list
+// ═══════════════════════════════════════════════════════════════════
+function updateEventList(events) {
+  const ul = document.getElementById('event-list');
+
+  if (!events.length) {
+    ul.innerHTML = '<li class="italic text-muted text-xs">No events yet.</li>';
+    return;
+  }
+
+  ul.innerHTML = events.map(ev => {
+    const status   = ev.status || (ev.isPending ? 'pending' : 'success');
+    const dayIdx   = Math.floor(ev.startTime / MINS_PER_DAY);
+    const isPending  = status === 'pending';
+    const isConflict = status === 'conflict';
+    const isSuccess  = status === 'success';
+
+    const dotStyle = isConflict ? 'background:#f87171'
+                   : isPending  ? 'background:#fbbf24'
+                   : isSuccess  ? 'background:#34d399'
+                   : `background:${DAY_COLORS[dayIdx % 7]}`;
+
+    const badge = isConflict
+      ? `<span class="ml-1 shrink-0 text-red-400 font-bold text-xs leading-none">⚠</span>`
+      : isPending
+        ? `<span class="ml-1 shrink-0 text-amber-400 text-xs font-medium rounded
+                        px-1 border border-amber-400/30 bg-amber-400/10 leading-none py-0.5">pending</span>`
+        : isSuccess
+          ? `<span class="ml-1 shrink-0 text-emerald-400 text-xs leading-none">✓</span>`
+          : '';
+
+    // Conflict sub-label: who it clashes with
+    const conflictSub = isConflict && ev.conflictWith
+      ? `<span class="text-red-400/70 text-xs truncate block pl-3.5 leading-none pb-0.5">
+           clashes with: ${ev.conflictWith.title}
+         </span>`
+      : '';
+
+    const delBtn = isPending
+      ? `<button class="ml-1 shrink-0 text-muted hover:text-red-400 transition-colors
+                        text-base leading-none" data-del="${ev.id}" title="Discard">×</button>`
+      : '';
+
+    return `<li class="py-1.5 border-b border-border last:border-0 min-w-0">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="inline-block w-2 h-2 rounded-full shrink-0" style="${dotStyle}"></span>
+                <span class="truncate text-white text-xs">${ev.title}</span>
+                ${badge}
+                <span class="ml-auto shrink-0 text-muted text-xs pl-1">
+                  ${fmtDuration(ev.endTime - ev.startTime)}
+                </span>
+                ${delBtn}
+              </div>
+              ${conflictSub}
+            </li>`;
+  }).join('');
+
+  ul.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => discardPending(Number(btn.dataset.del)));
   });
 }
 
-// ── Statistics ───────────────────────────────────────────────────
-function updateStats(rawEvents, conflictIds) {
-  document.getElementById('stat-total').textContent = rawEvents.length;
-  document.getElementById('stat-conflicts').textContent = conflictIds.size;
-
-  const totalMins = rawEvents.reduce((s, e) => s + (e.endTime - e.startTime), 0);
-  document.getElementById('stat-busy').textContent =
-    totalMins ? fmtDuration(totalMins) : '0h 0m';
-
-  // Busiest day
-  const dayCount = Array(7).fill(0);
-  rawEvents.forEach(e => { dayCount[Math.floor(e.startTime / MINS_PER_DAY)]++; });
-  const maxIdx = dayCount.indexOf(Math.max(...dayCount));
-  document.getElementById('stat-day').textContent =
-    rawEvents.length ? DAY_NAMES[maxIdx] : '—';
+// ═══════════════════════════════════════════════════════════════════
+// Full re-render
+// ═══════════════════════════════════════════════════════════════════
+function refreshCalendar() {
+  const all = allRaw();
+  calendar.removeAllEvents();
+  all.forEach(ev => calendar.addEvent(buildFCEvent(ev, currentMonday)));
+  updateStats(all);
+  updateEventList(all);
 }
 
-// ── Event list (sidebar) ──────────────────────────────────────────
-function updateEventList(rawEvents, conflictIds) {
-  const ul = document.getElementById('event-list');
-  if (!rawEvents.length) {
-    ul.innerHTML = '<li class="italic">No data loaded.</li>';
-    return;
-  }
-  ul.innerHTML = rawEvents.map(ev => {
-    const dot = conflictIds.has(ev.id)
-      ? '<span class="inline-block w-2 h-2 rounded-full bg-conflict mr-1.5 shrink-0"></span>'
-      : `<span class="inline-block w-2 h-2 rounded-full mr-1.5 shrink-0" style="background:${DAY_COLORS[Math.floor(ev.startTime/MINS_PER_DAY)%7]}"></span>`;
-    return `<li class="flex items-center gap-1 text-xs py-1 border-b border-border last:border-0">
-              ${dot}<span class="truncate text-white">${ev.title}</span>
-              <span class="ml-auto shrink-0 text-muted">${fmtDuration(ev.endTime - ev.startTime)}</span>
-            </li>`;
-  }).join('');
-}
-
-// ── Tooltip logic ─────────────────────────────────────────────────
-const tooltip  = document.getElementById('tooltip');
-const ttTitle  = document.getElementById('tt-title');
-const ttStart  = document.getElementById('tt-start');
-const ttEnd    = document.getElementById('tt-end');
-const ttDur    = document.getElementById('tt-dur');
-const ttBadge  = document.getElementById('tt-badge');
+// ═══════════════════════════════════════════════════════════════════
+// Tooltip
+// ═══════════════════════════════════════════════════════════════════
+const tooltip   = document.getElementById('tooltip');
+const ttTitle   = document.getElementById('tt-title');
+const ttStart   = document.getElementById('tt-start');
+const ttEnd     = document.getElementById('tt-end');
+const ttDur     = document.getElementById('tt-dur');
+const ttBadge   = document.getElementById('tt-badge');
+const ttPending = document.getElementById('tt-pending');
 
 document.addEventListener('mousemove', e => {
   if (!tooltip.classList.contains('hidden')) {
     const off = 14;
     let left = e.clientX + off, top = e.clientY + off;
-    if (left + 224 > window.innerWidth)  left = e.clientX - 224 - off;
+    if (left + 240 > window.innerWidth)  left = e.clientX - 240 - off;
     if (top  + 140 > window.innerHeight) top  = e.clientY - 140 - off;
     tooltip.style.left = left + 'px';
     tooltip.style.top  = top  + 'px';
@@ -319,125 +643,333 @@ document.addEventListener('mousemove', e => {
 
 function showTooltip(info) {
   const ep = info.event.extendedProps;
-  ttTitle.textContent = info.event.title;
+  ttTitle.textContent = ep.rawTitle || info.event.title;
   ttStart.textContent = `Start: ${ep.startLabel || info.event.startStr}`;
   ttEnd.textContent   = `End:   ${ep.endLabel   || info.event.endStr}`;
   ttDur.textContent   = `Duration: ${fmtDuration(ep.durationMin)}`;
-  ttBadge.classList.toggle('hidden', !ep.isConflict);
+
+  const isConflict = ep.status === 'conflict';
+  const isPending  = ep.status === 'pending';
+
+  if (isConflict && ep.conflictWith) {
+    ttBadge.textContent = `⚠ Conflict with: ${ep.conflictWith.title}`;
+  } else {
+    ttBadge.textContent = '⚠ Conflict detected';
+  }
+  ttBadge.classList.toggle('hidden',   !isConflict);
+  ttPending.classList.toggle('hidden', !isPending);
   tooltip.classList.remove('hidden');
 }
-
 function hideTooltip() { tooltip.classList.add('hidden'); }
 
-// ── FullCalendar setup ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// FullCalendar init
+// ═══════════════════════════════════════════════════════════════════
 let calendar;
 let currentMonday = getMondayOfWeek(new Date());
 
 function initCalendar() {
-  const el = document.getElementById('calendar');
-  calendar = new FullCalendar.Calendar(el, {
-    initialView:    'timeGridWeek',
-    firstDay:       1,          // week starts Monday
-    headerToolbar: {
-      left:   'prev,next',
-      center: 'title',
-      right:  'timeGridWeek,timeGridDay',
-    },
-    height:         '100%',
-    allDaySlot:     false,
-    slotMinTime:    '07:00:00',
-    slotMaxTime:    '23:00:00',
-    slotDuration:   '00:30:00',
-    expandRows:     true,
-    nowIndicator:   true,
-    initialDate:    currentMonday,
+  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView:     'timeGridWeek',
+    firstDay:        1,
+    headerToolbar:   { left: 'prev,next', center: 'title', right: 'timeGridWeek,timeGridDay' },
+    height:          '100%',
+    allDaySlot:      false,
+    slotMinTime:     '07:00:00',
+    slotMaxTime:     '23:00:00',
+    slotDuration:    '00:30:00',
+    expandRows:      true,
+    nowIndicator:    true,
+    initialDate:     currentMonday,
     eventMouseEnter: showTooltip,
     eventMouseLeave: hideTooltip,
     datesSet: info => {
-      const label = info.start.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+      const label = info.start.toLocaleDateString('en-GB',
+        { day:'numeric', month:'short', year:'numeric' });
       document.getElementById('week-label').textContent = 'Week of ' + label;
       currentMonday = getMondayOfWeek(info.start);
+      refreshCalendar();
     },
   });
   calendar.render();
 }
 
-// ── Load events into calendar ─────────────────────────────────────
-let lastRaw = [];
-
-function loadEvents(rawEvents) {
-  lastRaw = rawEvents;
-  const conflictIds = detectConflicts(rawEvents);
-  const fcEvents = buildFCEvents(rawEvents, currentMonday);
-
-  calendar.removeAllEvents();
-  fcEvents.forEach(ev => calendar.addEvent(ev));
-
-  updateStats(rawEvents, conflictIds);
-  updateEventList(rawEvents, conflictIds);
-
-  document.getElementById('upload-status').textContent =
-    `✓ Loaded ${rawEvents.length} event${rawEvents.length !== 1 ? 's' : ''}`;
+// ═══════════════════════════════════════════════════════════════════
+// Status bar helper
+// ═══════════════════════════════════════════════════════════════════
+function setSyncStatus(msg, ok = true) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.style.color = ok ? '#34d399' : '#f87171';
 }
 
-// ── File input / drop zone ────────────────────────────────────────
-const dropZone  = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
+// ═══════════════════════════════════════════════════════════════════
+// Pipeline mode: detect whether we're running behind watch.js
+// If window.location is http://localhost:3000 we use the automated
+// POST /write-event + SSE path; otherwise fall back to the manual
+// file-picker + export workflow (works when opened as file://).
+// ═══════════════════════════════════════════════════════════════════
+const PIPELINE_MODE = window.location.protocol === 'http:';
 
-dropZone.addEventListener('click',      () => fileInput.click());
-dropZone.addEventListener('dragover',   e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave',  ()  => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) readFile(file);
-});
-fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) readFile(fileInput.files[0]);
+// ═══════════════════════════════════════════════════════════════════
+// Ingest a full event array from the server (SSE or initial fetch)
+// ═══════════════════════════════════════════════════════════════════
+function ingestServerData(data) {
+  if (!Array.isArray(data)) return;
+
+  // All server data replaces the confirmed store; pending entries that
+  // the C++ engine has now decided on are dropped from pendingRaw.
+  const auditedIds = new Set(
+    data.filter(ev => ev.status === 'success' || ev.status === 'conflict')
+        .map(ev => ev.id)
+  );
+  confirmedRaw = data;
+  saveConfirmedToStorage();
+  pendingRaw = pendingRaw.filter(ev => !auditedIds.has(ev.id));
+  savePendingToStorage();
+  refreshCalendar();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Server-Sent Events  (pipeline mode only)
+// ═══════════════════════════════════════════════════════════════════
+let sseConnected = false;
+
+function connectSSE() {
+  if (!PIPELINE_MODE) return;
+  const es = new EventSource('/events');
+
+  es.onopen = () => {
+    sseConnected = true;
+    setSyncStatus('⬤ Live — C++ engine connected.');
+  };
+
+  es.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      ingestServerData(data);
+
+      const nSuccess  = data.filter(ev => ev.status === 'success').length;
+      const nConflict = data.filter(ev => ev.status === 'conflict').length;
+      const nPending  = data.filter(ev => ev.status === 'pending').length;
+      setSyncStatus(
+        `⬤ Engine updated — ${nSuccess} ok, ${nConflict} conflict(s)` +
+        (nPending ? `, ${nPending} pending` : '') + '.'
+      );
+    } catch (_) { /* ignore malformed push */ }
+  };
+
+  es.onerror = () => {
+    sseConnected = false;
+    setSyncStatus('○ Server offline — manual mode active.', false);
+    // Retry handled automatically by EventSource; no manual reconnect needed.
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Manual sync / export  (fallback when not in pipeline mode)
+// ═══════════════════════════════════════════════════════════════════
+document.getElementById('btn-sync').addEventListener('click', () => {
+  if (PIPELINE_MODE) {
+    // In pipeline mode, Sync fetches the latest data.json from the server
+    fetch('/data.json')
+      .then(r => r.json())
+      .then(data => { ingestServerData(data); setSyncStatus('✓ Refreshed from server.'); })
+      .catch(() => setSyncStatus('✗ Fetch failed.', false));
+  } else {
+    document.getElementById('file-input').click();
+  }
 });
 
-function readFile(file) {
-  const status = document.getElementById('upload-status');
-  status.textContent = 'Reading…';
+document.getElementById('file-input').addEventListener('change', function () {
+  if (!this.files[0]) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data)) throw new Error('Expected a JSON array.');
-      loadEvents(data);
+      ingestServerData(data);
+      const nS = data.filter(ev => ev.status === 'success').length;
+      const nC = data.filter(ev => ev.status === 'conflict').length;
+      setSyncStatus(`✓ Synced: ${nS} ok, ${nC} conflict(s).`);
     } catch (err) {
-      status.textContent = '✗ Invalid JSON: ' + err.message;
+      setSyncStatus('✗ Invalid JSON: ' + err.message, false);
     }
+    this.value = '';
   };
-  reader.onerror = () => { status.textContent = '✗ Failed to read file.'; };
-  reader.readAsText(file);
+  reader.onerror = () => setSyncStatus('✗ Failed to read file.', false);
+  reader.readAsText(this.files[0]);
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const all = allRaw();
+  if (!all.length) { setSyncStatus('Nothing to export.', false); return; }
+
+  const payload = all.map(ev => ({
+    id:         ev.id,
+    title:      ev.title,
+    startTime:  ev.startTime,
+    endTime:    ev.endTime,
+    startLabel: ev.startLabel || '',
+    endLabel:   ev.endLabel   || '',
+    status:     ev.status || (ev.isPending ? 'pending' : 'success'),
+    ...(ev.conflictWith ? { conflictWith: ev.conflictWith } : {}),
+  }));
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'),
+    { href: url, download: 'data.json' });
+  a.click();
+  URL.revokeObjectURL(url);
+  setSyncStatus(`✓ Exported ${payload.length} event(s).`);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Add-event form
+// ═══════════════════════════════════════════════════════════════════
+function nextPendingId() {
+  const used = new Set(allRaw().map(e => e.id));
+  let id = Date.now();
+  while (used.has(id)) id++;
+  return id;
 }
 
-// ── "Load Sample" button ──────────────────────────────────────────
-// Hard-coded sample mirrors what the C++ data generator produces,
-// so the dashboard works out of the box without running the binary.
+const addForm   = document.getElementById('add-event-form');
+const formError = document.getElementById('form-error');
+const btnAdd    = document.getElementById('btn-add-event');
+
+function showFormError(msg) {
+  formError.textContent = msg;
+  formError.classList.remove('hidden');
+  addForm.classList.add('shake');
+  addForm.addEventListener('animationend', () => addForm.classList.remove('shake'), { once: true });
+}
+
+addForm.addEventListener('submit', e => {
+  e.preventDefault();
+  formError.classList.add('hidden');
+
+  const title    = document.getElementById('f-title').value.trim();
+  const dayIdx   = parseInt(document.getElementById('f-day').value, 10);
+  const startStr = document.getElementById('f-start').value;
+  const endStr   = document.getElementById('f-end').value;
+
+  if (!title)               { showFormError('Title is required.'); return; }
+  if (!startStr || !endStr) { showFormError('Fill in both times.'); return; }
+
+  const startMins = timeStrToWeekMins(dayIdx, startStr);
+  const endMins   = timeStrToWeekMins(dayIdx, endStr);
+
+  if (endMins <= startMins)    { showFormError('End must be after start.'); return; }
+  if (endMins > MINS_PER_WEEK) { showFormError('End time exceeds the week boundary.'); return; }
+
+  const dayName  = DAY_NAMES[dayIdx];
+  const newEvent = {
+    id:         nextPendingId(),
+    title,
+    startTime:  startMins,
+    endTime:    endMins,
+    startLabel: `${dayName} ${startStr}`,
+    endLabel:   `${dayName} ${endStr}`,
+    status:     'pending',
+  };
+
+  // ── Pipeline mode: POST to server → SSE will carry the result back ──
+  if (PIPELINE_MODE) {
+    // Optimistic render: show it as pending immediately
+    pendingRaw.push({ ...newEvent, isPending: true });
+    savePendingToStorage();
+    refreshCalendar();
+
+    fetch('/write-event', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(newEvent),
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) {
+          setSyncStatus(`✗ Server error: ${res.error}`, false);
+        } else {
+          setSyncStatus(`◎ "${title}" sent to engine…`);
+        }
+      })
+      .catch(() => setSyncStatus('✗ Server unreachable.', false));
+
+  // ── Manual mode: local-only pending ──────────────────────────────
+  } else {
+    pendingRaw.push({ ...newEvent, isPending: true });
+    savePendingToStorage();
+    refreshCalendar();
+    setSyncStatus(`◎ "${title}" added — export to run C++ audit.`);
+  }
+
+  // Visual success feedback and form reset
+  btnAdd.classList.add('pulse-ok');
+  btnAdd.addEventListener('animationend', () => btnAdd.classList.remove('pulse-ok'), { once: true });
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-title').focus();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Discard a pending event
+// ═══════════════════════════════════════════════════════════════════
+function discardPending(id) {
+  pendingRaw = pendingRaw.filter(e => e.id !== id);
+  savePendingToStorage();
+  refreshCalendar();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Sample data
+// ═══════════════════════════════════════════════════════════════════
 const SAMPLE_DATA = [
   { id:1, title:'CS Lecture',          startTime: 540,  endTime:  630,  startLabel:'Monday 09:00',    endLabel:'Monday 10:30'     },
   { id:2, title:'Gym Session',         startTime:2280,  endTime: 2400,  startLabel:'Tuesday 14:00',   endLabel:'Tuesday 16:00'    },
   { id:3, title:'Team Meeting',        startTime:3480,  endTime: 3540,  startLabel:'Wednesday 10:00', endLabel:'Wednesday 11:00'  },
   { id:4, title:'Dinner with Friends', startTime:6840,  endTime: 6960,  startLabel:'Friday 18:00',    endLabel:'Friday 20:00'     },
   { id:5, title:'Weekend Run',         startTime:7860,  endTime: 7980,  startLabel:'Saturday 11:00',  endLabel:'Saturday 13:00'   },
-  // Intentional conflict with Team Meeting (same window, Wed 10:30–11:30)
   { id:6, title:'⚠ Design Review',     startTime:3510,  endTime: 3630,  startLabel:'Wednesday 10:30', endLabel:'Wednesday 11:30'  },
 ];
 
 document.getElementById('btn-sample').addEventListener('click', () => {
-  loadEvents(SAMPLE_DATA);
-  document.getElementById('upload-status').textContent = '✓ Sample data loaded';
+  if (PIPELINE_MODE) {
+    // In pipeline mode, POST each sample event as pending so C++ validates them
+    // Reset data.json first by posting all at once through a custom endpoint
+    // Alternative: just load them locally and let the user export/sync
+    confirmedRaw = SAMPLE_DATA.map(e => ({ ...e, status: 'success' }));
+    saveConfirmedToStorage();
+    refreshCalendar();
+    setSyncStatus(`✓ Sample loaded locally (${SAMPLE_DATA.length} events). Use Sync to reconcile.`);
+  } else {
+    confirmedRaw = SAMPLE_DATA;
+    saveConfirmedToStorage();
+    refreshCalendar();
+    setSyncStatus(`✓ Sample data loaded (${SAMPLE_DATA.length} events).`);
+  }
 });
 
-document.getElementById('btn-today').addEventListener('click', () => {
-  calendar.today();
-});
+document.getElementById('btn-today').addEventListener('click', () => calendar.today());
 
-// ── Init ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════
 initCalendar();
+
+// Restore state from localStorage then connect to live engine
+if (confirmedRaw.length || pendingRaw.length) refreshCalendar();
+
+// In pipeline mode: fetch the current data.json from the server on load,
+// then open the SSE stream for live updates.
+if (PIPELINE_MODE) {
+  fetch('/data.json')
+    .then(r => r.json())
+    .then(data => { ingestServerData(data); })
+    .catch(() => { /* server not ready yet, SSE will handle it */ });
+
+  connectSSE();
+}
 </script>
 </body>
 </html>
