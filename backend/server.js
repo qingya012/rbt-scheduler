@@ -585,6 +585,12 @@ async function handler(req, res) {
     return;
   }
 
+  // ── GET /health ────────────────────────────────────────────────
+  if (method === 'GET' && url === '/health') {
+    json(res, 200, { ok: true });
+    return;
+  }
+
   // ── 404 ───────────────────────────────────────────────────────
   json(res, 404, { error: `Not found: ${method} ${url}` });
 }
@@ -628,5 +634,6 @@ server.listen(PORT, () => {
   console.log('    DELETE /api/events       → clear all');
   console.log('    POST   /api/audit        → conflict check → { conflict, conflictIds[], events[] }');
   console.log('    POST   /api/suggest      → find free slot → { found, slot: {startTime, endTime} }');
-  console.log('    GET    /api/stats        → { total, conflicts, conflictIds[], busyMinutes }\n');
+  console.log('    GET    /api/stats        → { total, conflicts, conflictIds[], busyMinutes }');
+  console.log('    GET    /health           → { ok: true }\n');
 });

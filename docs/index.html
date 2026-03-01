@@ -560,7 +560,12 @@ const LS_KEY_EVENTS = 'rbt_all_events';
 // Backend API  — all calls go to the server.js RBT API.
 // Falls back gracefully when the server isn't running (offline mode).
 // ═══════════════════════════════════════════════════════════════════
-const SERVER = '';   // same origin when opened via `node server.js`
+// When served from GitHub Pages the origin differs from the API host;
+// detect this and point all fetch calls at the deployed Render backend.
+const API_BASE = 'https://rbt-scheduler.onrender.com';
+const SERVER   = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? ''          // same-origin: use relative paths when served by node server.js
+  : API_BASE;   // cross-origin: use deployed Render URL when opened from GitHub Pages
 
 async function apiFetch(method, path, body) {
   try {
