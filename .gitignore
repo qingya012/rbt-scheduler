@@ -1,3 +1,19 @@
+# Build artifacts
 *.o
 *.out
 build/
+backend/build/
+cpp/build/
+
+# Node
+node_modules/
+backend/node_modules/
+
+# C++ binaries
+scheduler
+
+# Runtime / DB
+*.db
+*.db-shm
+*.db-wal
+data.json

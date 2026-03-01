@@ -28,9 +28,9 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest nlohmann_json)
 
 add_library(rbt_scheduler_lib
-  src/Scheduler.cpp
+  cpp/src/Scheduler.cpp
 )
-target_include_directories(rbt_scheduler_lib PUBLIC include)
+target_include_directories(rbt_scheduler_lib PUBLIC cpp/include)
 target_compile_options(rbt_scheduler_lib PRIVATE -Wall -Wextra)
 target_link_libraries(rbt_scheduler_lib
   PUBLIC
@@ -38,13 +38,13 @@ target_link_libraries(rbt_scheduler_lib
 )
 
 # Main scheduler executable (optional; links to the same library)
-add_executable(scheduler main.cpp)
+add_executable(scheduler cpp/main.cpp)
 target_link_libraries(scheduler PRIVATE rbt_scheduler_lib)
 
 enable_testing()
 
 add_executable(rbt_scheduler_tests
-  tests/scheduler_gtest.cpp
+  cpp/tests/scheduler_gtest.cpp
 )
 target_link_libraries(rbt_scheduler_tests
   PRIVATE

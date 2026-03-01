@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RBT Scheduler – Weekly Dashboard</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface:  '#1e2030',
+            panel:    '#252839',
+            border:   '#2e3250',
+            accent:   '#7c83fd',
+            conflict: '#f87171',
+            pending:  '#fbbf24',
+            muted:    '#9ca3af',
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide icons (lightweight SVG icon set) -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.378.0/dist/umd/lucide.min.js"></script>
+
+  <!-- FullCalendar (with interaction plugin for drag/drop) -->
+  <link   href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+  <style>
+    body { background-color: #1e2030; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+
+    /* ── Sidebar ────────────────────────────────────────────────── */
+    #sidebar { width: 17rem; min-width: 17rem; height: 100vh; overflow: hidden; }
+
+    /* Form inputs — comfortable but not oversized */
+    .form-input { padding: 0.32rem 0.6rem !important; font-size: 0.75rem !important; }
+
+    /* Stat cards — padding scales via flex-grow on the parent grid column */
+    .stat-card { padding: 0.55rem 0.65rem !important; }
+    .stat-val  { font-size: 1.25rem !important; margin-top: 0.1rem !important; line-height: 1.2 !important; }
+
+    /* Stat section grows to fill remaining sidebar height */
+    #sidebar-lower { flex: 1 1 0; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; }
+
+    /* ── Calendar container ─────────────────────────────────────── */
+    #calendar-wrap { background: #252839; border-radius: 0.75rem; padding: 1rem; }
+
+    /* FullCalendar dark overrides */
+    .fc { --fc-border-color: #2e3250; --fc-page-bg-color: transparent;
+          --fc-neutral-bg-color: #1e2030; --fc-neutral-text-color: #9ca3af;
+          --fc-today-bg-color: rgba(124,131,253,.10);
+          --fc-event-border-color: transparent; }
+
+    .fc-col-header-cell-cushion,
+    .fc-timegrid-slot-label-cushion,
+    .fc-daygrid-day-number { color: #9ca3af; font-size: 0.75rem; text-decoration: none; }
+
+    .fc-col-header-cell { background: #1e2030; border-color: #2e3250 !important; }
+    .fc-timegrid-slot   { border-color: #2e3250 !important; }
+    .fc-scrollgrid      { border-color: #2e3250 !important; }
+    .fc-scrollgrid-sync-table td,
+    .fc-scrollgrid-sync-table th { border-color: #2e3250 !important; }
+    .fc-timegrid-col    { border-color: #2e3250 !important; }
+
+    .fc .fc-button { background: #2e3250 !important; border: 1px solid #3d4270 !important;
+                     color: #9ca3af !important; border-radius: 0.5rem !important; font-size: 0.8rem !important; }
+    .fc .fc-button:hover  { background: #3d4270 !important; color: #e2e8f0 !important; }
+    .fc .fc-button-active { background: #7c83fd !important; color: #fff !important; border-color: #7c83fd !important; }
+    .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 600 !important; color: #e2e8f0 !important; }
+
+    /* Event blocks */
+    .fc-event { border-radius: 6px !important; font-size: 0.78rem !important;
+                font-weight: 500 !important; padding: 2px 6px !important; cursor: pointer; }
+    .fc-event .fc-event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Conflict border width — colour is driven by FC props in applyConflictStyles() */
+    .fc-event.event-conflict { border-width: 2px !important; border-style: solid !important; }
+
+    /* ── Now Indicator ──────────────────────────────────────────── */
+    .fc-timegrid-now-indicator-container { pointer-events: none !important; cursor: default !important; }
+    .fc-timegrid-now-indicator-arrow {
+      border-color: rgba(124,131,253,.85) !important;
+      border-top-color: transparent !important; border-bottom-color: transparent !important;
+      pointer-events: none !important;
+    }
+    .fc-timegrid-now-indicator-line {
+      border-color: rgba(124,131,253,.55) !important; border-top-width: 2px !important;
+      pointer-events: auto !important; cursor: pointer !important;
+      position: relative; overflow: visible; z-index: 9 !important;
+    }
+    .fc-timegrid-now-indicator-line:hover::after {
+      content: "Current Time"; position: absolute; top: -25px; left: 10px;
+      background: #475569; color: #fff; padding: 4px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; white-space: nowrap;
+      pointer-events: none; box-shadow: 0 2px 4px rgba(0,0,0,.35); z-index: 100;
+    }
+
+    /* ── Hover tooltip ──────────────────────────────────────────── */
+    #tooltip { pointer-events: none; transition: opacity .15s ease; }
+
+    /* ── Form inputs ────────────────────────────────────────────── */
+    .form-input {
+      width: 100%; background: #161726; border: 1px solid #2e3250; border-radius: 0.5rem;
+      color: #e2e8f0; padding: 0.42rem 0.6rem; font-size: 0.78rem; outline: none;
+      transition: border-color 0.15s; appearance: none; -webkit-appearance: none;
+    }
+    .form-input:focus { border-color: #7c83fd; }
+    .form-input option { background: #161726; }
+    /* Subtle placeholder — low-opacity muted tone, disappears on first keystroke */
+    .form-input::placeholder { color: #4b5268; opacity: 1; }
+    /* Native time/date inputs: keep the calendar/clock icon muted */
+    .form-input::-webkit-calendar-picker-indicator { filter: invert(0.35) brightness(0.8); cursor: pointer; }
+    .form-label {
+      display: block; font-size: 0.65rem; color: #9ca3af;
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.25rem;
+    }
+
+    /* ── Sidebar section headings ───────────────────────────────── */
+    .section-head {
+      font-size: 0.65rem; color: #9ca3af; text-transform: uppercase;
+      letter-spacing: 0.09em; padding-bottom: 0.5rem;
+      border-bottom: 1px solid #2e3250; margin-bottom: 0.75rem;
+    }
+
+    /* ── Stat cards ─────────────────────────────────────────────── */
+    .stat-card { background: #161726; border-radius: 0.5rem; padding: 0.6rem 0.75rem; }
+    .stat-val  { font-size: 1.4rem; font-weight: 700; line-height: 1.2; margin-top: 0.1rem; }
+
+    /* ── Button animations ──────────────────────────────────────── */
+    @keyframes pulse-green {
+      0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+      50%      { box-shadow: 0 0 0 6px rgba(52,211,153,.35); }
+    }
+    .pulse-ok { animation: pulse-green 0.6s ease; }
+
+    @keyframes shake {
+      0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)}
+    }
+    .shake { animation: shake 0.35s ease; }
+
+    /* ── Toast notifications ────────────────────────────────────── */
+    #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+                       display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+    .toast {
+      display: flex; align-items: center; gap: 0.6rem;
+      background: #252839; border: 1px solid #2e3250; border-radius: 0.6rem;
+      padding: 0.6rem 1rem; font-size: 0.78rem; color: #e2e8f0;
+      box-shadow: 0 8px 24px rgba(0,0,0,.45);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      pointer-events: auto;
+    }
+    .toast.show  { opacity: 1; transform: translateY(0); }
+    .toast.leave { opacity: 0; transform: translateY(6px); }
+    .toast-dot   { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Context menu ───────────────────────────────────────────── */
+    #ctx-menu {
+      position: fixed; z-index: 9000; min-width: 10rem;
+      background: #252839; border: 1px solid #2e3250; border-radius: 0.6rem;
+      padding: 0.35rem; box-shadow: 0 12px 32px rgba(0,0,0,.55);
+      opacity: 0; transform: scale(0.96); transform-origin: top left;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      pointer-events: none;
+    }
+    #ctx-menu.open { opacity: 1; transform: scale(1); pointer-events: auto; }
+    .ctx-item {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.45rem 0.65rem; border-radius: 0.4rem;
+      font-size: 0.78rem; color: #e2e8f0; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .ctx-item:hover { background: #2e3250; }
+    .ctx-item.danger { color: #f87171; }
+    .ctx-item.danger:hover { background: rgba(248,113,113,.12); }
+    .ctx-sep { height: 1px; background: #2e3250; margin: 0.25rem 0; }
+
+    /* ── Modals (edit + confirm) ────────────────────────────────── */
+    #edit-overlay, #confirm-overlay {
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      transition: opacity 0.2s ease;
+    }
+    #edit-overlay.modal-hidden,
+    #confirm-overlay.modal-hidden { opacity: 0; pointer-events: none; }
+    #edit-box, #confirm-box { transition: opacity 0.2s ease, transform 0.2s ease; }
+    #edit-overlay.modal-hidden    #edit-box,
+    #confirm-overlay.modal-hidden #confirm-box { opacity: 0; transform: translateY(-12px) scale(0.97); }
+
+    /* ── Scrollbar ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #1e2030; }
+    ::-webkit-scrollbar-thumb { background: #3d4270; border-radius: 3px; }
+
+    /* ── Ghost suggestion block ─────────────────────────────────── */
+    /*
+     * FullCalendar writes backgroundColor/borderColor as INLINE styles on
+     * .fc-event which defeat any CSS class.  We fight back with !important
+     * on both background-color AND background so nothing else wins.
+     *
+     * The selector chain .fc-timegrid-event.fc-ghost-suggestion targets the
+     * exact wrapper element that FC adds our classNames to.
+     */
+    /* ── Ghost suggestion block ───────────────────────────────────
+     *
+     * KEY RULES:
+     *  • pointer-events: auto  — ghost MUST be clickable. The old
+     *    "none" value was blocking clicks; the document-level rect
+     *    check was unreliable because the dragging mirror element
+     *    sits on top. Making the ghost itself receive clicks is
+     *    simpler and more reliable.
+     *  • z-index: 9999         — sit above the FC drag mirror so the
+     *    user can always click the ghost even while dragging.
+     *  • FC writes backgroundColor/borderColor as inline styles, so
+     *    we fight back with !important on every colour property.
+     */
+    .fc-timegrid-event.fc-ghost-suggestion,
+    .fc-ghost-suggestion {
+      background-color: rgba(99,102,241,0.20) !important;
+      background:       rgba(99,102,241,0.20) !important;
+      border:           2px dashed rgba(99,102,241,0.90) !important;
+      border-color:     rgba(99,102,241,0.90) !important;
+      border-radius:    6px !important;
+      outline:          none !important;
+      pointer-events:   auto !important;   /* MUST be auto — ghost is clickable */
+      cursor:           pointer !important;
+      z-index:          9999 !important;   /* above FC drag mirror */
+      transition:       opacity 0.25s ease, background-color 0.2s ease !important;
+    }
+
+    /* Inner text */
+    .fc-ghost-suggestion .fc-event-main,
+    .fc-ghost-suggestion .fc-event-title {
+      color:           #a5b4fc !important;
+      font-size:       0.68rem !important;
+      font-weight:     700 !important;
+      letter-spacing:  0.05em !important;
+      text-transform:  uppercase !important;
+      pointer-events:  none !important;   /* let clicks pass through title to wrapper */
+    }
+
+    .fc-ghost-suggestion .fc-event-resizer { display: none !important; }
+
+    @keyframes ghost-pulse {
+      0%,100% { opacity: 0.75; }
+      50%      { opacity: 1.00; }
+    }
+    .fc-ghost-suggestion { animation: ghost-pulse 1.8s ease-in-out infinite; }
+
+    /* ── Magnetic state ─────────────────────────────────────────── */
+    .fc-timegrid-event.fc-ghost-magnetic,
+    .fc-ghost-magnetic {
+      background-color: rgba(16,185,129,0.22) !important;
+      background:       rgba(16,185,129,0.22) !important;
+      border:           2px solid #10b981 !important;
+      border-color:     #10b981 !important;
+      box-shadow:       0 0 0 3px rgba(16,185,129,0.30) !important;
+      animation:        none !important;
+      opacity:          1 !important;
+    }
+    .fc-ghost-magnetic .fc-event-main,
+    .fc-ghost-magnetic .fc-event-title {
+      color: #6ee7b7 !important;
+    }
+
+    /* Snap flash — brief green ring on the snapped event block */
+    @keyframes snap-flash {
+      0%   { box-shadow: 0 0 0 0   rgba(16,185,129,0);    }
+      40%  { box-shadow: 0 0 0 10px rgba(16,185,129,0.55); }
+      100% { box-shadow: 0 0 0 0   rgba(16,185,129,0);    }
+    }
+    .snap-flash { animation: snap-flash 0.5s ease forwards !important; }
+  </style>
+</head>
+
+<body class="dark h-full">
+
+<!-- ── Hover tooltip ────────────────────────────────────────────── -->
+<div id="tooltip"
+     class="fixed z-50 hidden bg-surface border border-border rounded-xl shadow-2xl p-3 w-60 text-xs">
+  <p id="tt-title"   class="font-semibold text-white mb-1 text-sm"></p>
+  <p id="tt-start"   class="text-muted"></p>
+  <p id="tt-end"     class="text-muted"></p>
+  <p id="tt-dur"     class="text-muted"></p>
+  <p id="tt-badge" class="hidden text-red-400 font-medium mt-1.5"></p>
+</div>
+
+<!-- ── Context menu ─────────────────────────────────────────────── -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-edit">
+    <i data-lucide="pencil" class="w-3.5 h-3.5 shrink-0"></i> Edit
+  </div>
+  <div class="ctx-item" id="ctx-duplicate">
+    <i data-lucide="copy" class="w-3.5 h-3.5 shrink-0"></i> Duplicate
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-remove">
+    <i data-lucide="trash-2" class="w-3.5 h-3.5 shrink-0"></i> Remove
+  </div>
+</div>
+
+<!-- ── Edit event modal ──────────────────────────────────────────── -->
+<div id="edit-overlay"
+     class="modal-hidden fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+  <div id="edit-box"
+       class="bg-panel border border-border rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-white font-semibold text-base">Edit Event</h2>
+      <button id="edit-close" class="text-muted hover:text-white transition-colors text-lg leading-none">✕</button>
+    </div>
+    <form id="edit-form" novalidate class="space-y-4">
+      <div>
+        <label class="form-label" for="e-title">Title</label>
+        <input id="e-title" type="text" class="form-input" autocomplete="off" />
+      </div>
+      <div>
+        <label class="form-label" for="e-day">Day</label>
+        <select id="e-day" class="form-input">
+          <option value="0">Monday</option><option value="1">Tuesday</option>
+          <option value="2">Wednesday</option><option value="3">Thursday</option>
+          <option value="4">Friday</option><option value="5">Saturday</option>
+          <option value="6">Sunday</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="form-label" for="e-start">Start</label>
+          <input id="e-start" type="time" class="form-input" />
+        </div>
+        <div>
+          <label class="form-label" for="e-end">End</label>
+          <input id="e-end" type="time" class="form-input" />
+        </div>
+      </div>
+      <p id="edit-error" class="text-red-400 text-xs hidden"></p>
+      <div class="flex gap-3 pt-1">
+        <button type="button" id="edit-cancel"
+                class="flex-1 py-2 text-xs rounded-lg border border-border text-muted hover:text-white hover:border-accent transition-colors">
+          Cancel
+        </button>
+        <button type="submit"
+                class="flex-1 py-2 text-xs rounded-lg bg-accent text-white hover:opacity-90 transition-opacity font-medium">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Confirm clear-all modal ──────────────────────────────────── -->
+<div id="confirm-overlay"
+     class="modal-hidden fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+  <div id="confirm-box"
+       class="bg-panel border border-border rounded-2xl shadow-2xl w-full max-w-xs mx-4 p-6 text-center">
+    <div class="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="trash-2" class="w-5 h-5 text-red-400"></i>
+    </div>
+    <h2 class="text-white font-semibold text-base mb-1">Clear all events?</h2>
+    <p class="text-muted text-xs mb-5 leading-relaxed">
+      This will permanently remove every event from the calendar and cannot be undone.
+    </p>
+    <div class="flex gap-3">
+      <button id="confirm-cancel"
+              class="flex-1 py-2 text-xs rounded-lg border border-border text-muted
+                     hover:text-white hover:border-accent transition-colors">
+        Cancel
+      </button>
+      <button id="confirm-ok"
+              class="flex-1 py-2 text-xs rounded-lg bg-red-500/90 text-white font-medium
+                     hover:bg-red-500 transition-colors">
+        Clear All
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ──────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── App shell ─────────────────────────────────────────────────── -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ══════════════════════════ SIDEBAR ══════════════════════════ -->
+  <aside id="sidebar" class="shrink-0 bg-panel border-r border-border flex flex-col overflow-hidden">
+
+    <!-- Logo -->
+    <div class="flex items-center gap-2 px-4 pt-4 pb-4 border-b border-border shrink-0">
+      <div class="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center shrink-0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c83fd" stroke-width="2.5">
+          <rect x="3"  y="3"  width="7" height="7" rx="1"/>
+          <rect x="14" y="3"  width="7" height="7" rx="1"/>
+          <rect x="3"  y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-semibold text-white text-sm leading-tight">RBT Scheduler</p>
+        <p class="text-muted text-xs">Weekly Dashboard</p>
+      </div>
+    </div>
+
+    <!-- ── Top section: Add New Event (fixed height, does not grow) ── -->
+    <div class="shrink-0 px-4 pt-4 pb-3">
+      <p class="section-head">Add New Event</p>
+      <form id="add-event-form" novalidate class="space-y-2">
+        <div>
+          <label class="form-label" for="f-title">Title</label>
+          <input id="f-title" type="text" placeholder="Task title…"
+                 class="form-input" autocomplete="off" />
+        </div>
+        <div>
+          <label class="form-label" for="f-day">Day</label>
+          <select id="f-day" class="form-input">
+            <option value="0">Monday</option><option value="1">Tuesday</option>
+            <option value="2">Wednesday</option><option value="3">Thursday</option>
+            <option value="4">Friday</option><option value="5">Saturday</option>
+            <option value="6">Sunday</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="form-label" for="f-start">Start</label>
+            <input id="f-start" type="time" value="00:00" class="form-input" />
+          </div>
+          <div>
+            <label class="form-label" for="f-end">End</label>
+            <input id="f-end" type="time" value="00:00" class="form-input" />
+          </div>
+        </div>
+        <p id="form-error" class="text-red-400 text-xs hidden leading-snug"></p>
+        <button id="btn-add-event" type="submit"
+                class="w-full py-2 rounded-lg bg-accent text-white text-xs font-semibold
+                       hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5">
+          <i data-lucide="plus" class="w-3 h-3"></i>
+          Add Event
+        </button>
+      </form>
+    </div>
+
+    <div class="border-t border-border mx-4 shrink-0"></div>
+
+    <!-- ── Lower section: Stats + Monitor + Footer (grows to fill remainder) ── -->
+    <div id="sidebar-lower" class="px-4 pt-3 pb-4 overflow-hidden">
+
+      <!-- Current Stats -->
+      <div>
+        <p class="section-head">Current Stats</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="stat-card col-span-2">
+            <p class="text-muted text-xs">Total Events</p>
+            <p id="stat-total" class="stat-val text-accent">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-muted text-xs">Conflicts</p>
+            <p id="stat-conflicts" class="stat-val text-red-500">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-muted text-xs">Busy Time</p>
+            <p id="stat-busy" class="stat-val text-white">0h</p>
+          </div>
+          <div class="stat-card col-span-2">
+            <p class="text-muted text-xs">Busiest Day</p>
+            <p id="stat-day" class="stat-val text-white">—</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- RBT Engine Monitor — same card style as stat cards -->
+      <div id="rbt-monitor" class="stat-card" style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;margin-top:12px;">
+        <p class="text-muted text-xs" style="text-transform:uppercase;letter-spacing:0.05em;">Engine Latency</p>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:2px;">
+          <span id="rbt-latency" style="font-family:'Courier New',monospace;font-size:20px;font-weight:bold;color:#10b981;text-shadow:0 0 8px rgba(16,185,129,0.3);transition:color 0.4s ease;">0</span>
+          <span class="text-muted" style="font-size:11px;">μs</span>
+        </div>
+      </div>
+
+      <!-- Footer — margin-top:auto pushes it to the very bottom -->
+      <p style="margin-top:auto;padding-top:8px;font-size:9px;text-align:center;opacity:0.2;color:#9ca3af;user-select:none;border-top:1px solid rgba(255,255,255,0.07);">
+        RBT Scheduler © 2026
+      </p>
+
+    </div>
+
+    <!-- Hidden stat elements kept for JS compatibility -->
+    <span id="stat-pending" class="hidden"></span>
+  </aside>
+
+  <!-- ══════════════════════════ MAIN ═════════════════════════════ -->
+  <main class="flex-1 flex flex-col overflow-hidden p-5 gap-4">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between shrink-0">
+      <div>
+        <h1 class="text-xl font-bold text-white">Weekly Schedule</h1>
+        <p id="week-label" class="text-xs text-muted mt-0.5">Current week</p>
+      </div>
+      <div class="flex gap-2 items-center">
+        <button id="btn-today"
+                class="px-3 py-1.5 text-xs rounded-lg bg-panel border border-border
+                       text-muted hover:text-white hover:border-accent transition-colors">
+          Today
+        </button>
+        <button id="btn-clear-all"
+                class="px-3 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400
+                       hover:bg-red-500/10 hover:border-red-500/60 transition-colors
+                       flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3 h-3"></i>
+          Clear All
+        </button>
+        <!-- keep pending badge in DOM for JS; always hidden -->
+        <span id="pending-badge" class="hidden">
+          <span id="pending-badge-count"></span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div id="calendar-wrap" class="flex-1 min-h-0 overflow-auto">
+      <div id="calendar" class="h-full"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SCRIPT
+═════════════════════════════════════════════════════════════════ -->
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// Constants
+// ═══════════════════════════════════════════════════════════════════
+const MINS_PER_DAY  = 1440;
+const MINS_PER_WEEK = MINS_PER_DAY * 7;
+const DAY_NAMES     = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const EVENT_COLOR   = '#10b981'; // emerald-500 — single source of truth for the safe state
+
+// ── RBT latency display ───────────────────────────────────────────
+// Call with a microsecond number from data.latency_us.
+// Flashes the value bright green then transitions back to #10b981.
+function updateRbtLatency(us) {
+  if (us === undefined || us === null) return;
+  const el = document.getElementById('rbt-latency');
+  if (!el) return;
+  const display = us < 1000 ? us.toFixed(1) : (us / 1000).toFixed(2) + 'k';
+  el.textContent = display;
+  // Flash: override to bright green, then CSS transition returns it to #10b981
+  el.style.color = '#34d399';
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(() => { el.style.color = '#10b981'; }, 350);
+}
+const LS_KEY_EVENTS = 'rbt_all_events';
+
+// ═══════════════════════════════════════════════════════════════════
+// Backend API  — all calls go to the server.js RBT API.
+// Falls back gracefully when the server isn't running (offline mode).
+// ═══════════════════════════════════════════════════════════════════
+const SERVER = '';   // same origin when opened via `node server.js`
+
+async function apiFetch(method, path, body) {
+  try {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const r = await fetch(SERVER + path, opts);
+    if (!r.ok) {
+      console.warn(`[rbt-api] ${method} ${path} → HTTP ${r.status}`);
+      return null;
+    }
+    return r.json();
+  } catch (err) {
+    // Server unreachable — silent fallback to JS-only conflict detection
+    console.warn(`[rbt-api] ${method} ${path} unreachable:`, err.message);
+    return null;
+  }
+}
+
+// ── mergeServerFlags ──────────────────────────────────────────────
+// Write the server's is_conflicting flag back onto each local event
+// object so updateStats() can derive the count from events[] directly.
+// `serverEvents` is the `events` array in the server response (optional).
+// `allConflictIds` is the fallback when serverEvents isn't available.
+function mergeServerFlags(allConflictIds, serverEvents) {
+  const conflictSet = new Set((allConflictIds || []).map(id => String(id)));
+
+  if (serverEvents && serverEvents.length > 0) {
+    // Preferred path: authoritative is_conflicting bit straight from SQLite
+    const flagMap = new Map(serverEvents.map(e => [String(e.id), !!e.is_conflicting]));
+    events.forEach(ev => {
+      ev.is_conflicting = flagMap.has(String(ev.id))
+        ? flagMap.get(String(ev.id))
+        : conflictSet.has(String(ev.id));
+    });
+  } else {
+    // Fallback: derive from allConflictIds list
+    events.forEach(ev => {
+      ev.is_conflicting = conflictSet.has(String(ev.id));
+    });
+  }
+}
+
+// ── applyConflictStylesFromServer ─────────────────────────────────
+// Single source of truth for painting the calendar AND updating counts.
+//
+// allConflictIds : number[] — every conflicting event ID from the C++ audit.
+// stats          : { total, conflicts, busyMinutes } from the server.
+// serverEvents   : full event rows with is_conflicting (optional but preferred).
+//
+// Writes is_conflicting onto the local events[] array so updateStats()
+// can compute conflicts as events.filter(e => e.is_conflicting).length.
+function applyConflictStylesFromServer(allConflictIds, stats, serverEvents) {
+  if (!calendar) return;
+
+  // Step 1: persist flags into local array — this is the authoritative state
+  mergeServerFlags(allConflictIds, serverEvents);
+
+  const conflictSet = new Set((allConflictIds || []).map(id => String(id)));
+
+  // Step 2: repaint FullCalendar blocks
+  calendar.getEvents().forEach(fcEv => {
+    if (fcEv.extendedProps.isGhost) return;
+
+    const isConflict = conflictSet.has(String(fcEv.id));
+    const rawTitle   = fcEv.extendedProps.rawTitle || fcEv.title.replace(/^⚠ /, '');
+
+    if (isConflict) {
+      fcEv.setProp('backgroundColor', 'rgba(239,68,68,0.40)');
+      fcEv.setProp('borderColor',     'rgba(239,68,68,0.70)');
+      fcEv.setProp('textColor',       '#f87171');
+      const wt = '⚠ ' + rawTitle;
+      if (fcEv.title !== wt) fcEv.setProp('title', wt);
+    } else {
+      fcEv.setProp('backgroundColor', EVENT_COLOR);
+      fcEv.setProp('borderColor',     EVENT_COLOR);
+      fcEv.setProp('textColor',       '#ffffff');
+      if (fcEv.title !== rawTitle) fcEv.setProp('title', rawTitle);
+    }
+    fcEv.setExtendedProp('isConflict', isConflict);
+  });
+
+  // Step 3: update sidebar — derive conflicts from local array (single source)
+  const conflictCount = events.filter(e => e.is_conflicting).length;
+  document.getElementById('stat-conflicts').textContent = conflictCount;
+  if (stats) {
+    document.getElementById('stat-total').textContent = stats.total;
+    const h = Math.floor(stats.busyMinutes / 60), m = stats.busyMinutes % 60;
+    document.getElementById('stat-busy').textContent =
+      stats.busyMinutes === 0 ? '0h'
+        : (h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`);
+  }
+}
+
+// ── upsertAndAudit ────────────────────────────────────────────────
+// Single round-trip: upsert the event into the C++ tree + SQLite,
+// then get back the full conflict picture in one response.
+// Side-effects:
+//   • Repaints all conflicting FC event blocks.
+//   • Shows the ghost suggestion block when this event has conflicts.
+//   • Removes the ghost block when all conflicts are resolved.
+// Returns the server payload or null if offline.
+async function upsertAndAudit(ev) {
+  const payload = {
+    id:        Math.trunc(Number(ev.id)),
+    title:     ev.title,
+    startTime: Math.trunc(ev.startTime),
+    endTime:   Math.trunc(ev.endTime),
+  };
+  const data = await apiFetch('POST', '/api/events/upsert-audit', payload);
+  if (!data) return null;
+
+  // Update RBT monitor with the server-measured audit latency
+  updateRbtLatency(data.latency_us);
+
+  // Paint all conflicting blocks, write is_conflicting flags, update sidebar
+  applyConflictStylesFromServer(
+    data.allConflictIds || [],
+    data.stats  || null,
+    data.events || null,
+  );
+
+  // ── Ghost block logic ───────────────────────────────────────────
+  // conflictIds: events overlapping THIS event's slot (excluding self).
+  // If this specific event is conflicting, request a free-slot suggestion.
+  if (data.conflictIds && data.conflictIds.length > 0) {
+    const duration = ev.endTime - ev.startTime;
+    ghostForEventId = String(ev.id);   // remember which event the ghost is for
+    // Start searching from the event's own start (prefer nearby slots)
+    fetchAndShowGhost(duration, ev.startTime);
+  } else {
+    // This event no longer conflicts — remove the ghost if it was for us
+    removeGhost();
+  }
+
+  return data;
+}
+
+// ── syncStatsFromServer ───────────────────────────────────────────
+// Used for lightweight refreshes (delete, clear, page-load seed).
+// Does NOT repaint the calendar colours — call applyConflictStylesFromServer
+// if you also need colour updates.
+async function syncStatsFromServer() {
+  const data = await apiFetch('GET', '/api/stats');
+  if (!data) return;
+
+  applyConflictStylesFromServer(
+    data.allConflictIds || data.conflictIds || [],
+    data,
+    data.events || null,
+  );
+}
+
+// ── seedServerFromStorage ─────────────────────────────────────────
+// On page load: hydrate the server from localStorage so the C++ tree
+// reflects what the user had last session. The server loads from
+// SQLite on startup, so for events already there this is a no-op upsert.
+async function seedServerFromStorage(evList) {
+  if (!evList.length) return;
+  for (const ev of evList) {
+    await apiFetch('POST', '/api/events', {
+      id: Number(ev.id), title: ev.title,
+      startTime: ev.startTime, endTime: ev.endTime,
+    });
+  }
+  // After seeding, do a single stats+colour refresh
+  syncStatsFromServer();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Ghost Block — "Suggested free slot" UI
+//
+// Lifecycle rules (keep these invariants true at all times):
+//  1. ghostSlot is set IFF a ghost FC event exists on the calendar.
+//  2. The ghost is ONLY removed by explicit calls to removeGhost().
+//     No timers ever call removeGhost() — that was the previous bug.
+//  3. Rendering (showGhost) and snapping (magnetic) are fully independent.
+//     Snapping reads ghostSlot synchronously in eventDrop; it does NOT
+//     depend on any visual state of the ghost element.
+//  4. The mousemove handler only changes CSS classes — it never adds or
+//     removes the FC event itself.
+// ═══════════════════════════════════════════════════════════════════
+const GHOST_ID            = 'ghost-suggestion';
+const SNAP_THRESHOLD_PX   = 30;   // px radius for magnetic snap activation
+const SNAP_THRESHOLD_MINS = 15;   // minute fallback for non-pointer drops
+
+let ghostSlot        = null;   // { startTime, endTime } | null
+let isMagnetic       = false;  // cursor currently within snap range of ghost
+let draggingEventId  = null;   // FC event id being dragged right now
+let ghostForEventId  = null;   // id of the event this suggestion is for (click-to-snap)
+
+// ── Core ghost render/remove ──────────────────────────────────────
+
+/**
+ * Render the ghost block on the calendar, or reposition it if already present.
+ *
+ * CRITICAL: never pass backgroundColor / borderColor / textColor to addEvent.
+ * FC writes those as inline styles that beat CSS class !important rules.
+ * By omitting them the CSS class applies cleanly.
+ */
+function showGhost(slot) {
+  if (!calendar || !currentMonday) return;
+
+  ghostSlot  = slot;
+  isMagnetic = false;
+
+  const existing = calendar.getEventById(GHOST_ID);
+  if (existing) {
+    // Reposition in-place — avoids re-mount flicker and animation restart
+    existing.setStart(weekMinutesToDate(slot.startTime, currentMonday));
+    existing.setEnd  (weekMinutesToDate(slot.endTime,   currentMonday));
+    // Reset magnetic state but keep the ghost visible
+    _applyGhostClass(false);
+    return;
+  }
+
+  calendar.addEvent({
+    id:               GHOST_ID,
+    title:            '✦ Suggested',
+    start:            weekMinutesToDate(slot.startTime, currentMonday),
+    end:              weekMinutesToDate(slot.endTime,   currentMonday),
+    classNames:       ['fc-ghost-suggestion'],
+    editable:         false,
+    durationEditable: false,
+    extendedProps:    { isGhost: true, rawTitle: '✦ Suggested' },
+  });
+}
+
+/**
+ * Remove the ghost from the calendar and clear all related state.
+ * The ONLY function that should destroy the ghost FC event.
+ */
+function removeGhost() {
+  ghostSlot       = null;
+  isMagnetic      = false;
+  ghostForEventId = null;
+  const existing  = calendar && calendar.getEventById(GHOST_ID);
+  if (existing) existing.remove();
+}
+
+// ── Magnetic visual toggle ────────────────────────────────────────
+// Operates only on CSS classes of the ghost DOM element.
+// Never adds or removes the FC event — purely cosmetic.
+
+function _applyGhostClass(magnetic) {
+  isMagnetic = magnetic;
+  const fcEv = calendar && calendar.getEventById(GHOST_ID);
+  if (!fcEv || !fcEv.el) return;
+
+  if (magnetic) {
+    fcEv.el.classList.add('fc-ghost-magnetic');
+    fcEv.el.classList.remove('fc-ghost-suggestion');
+    const titleEl = fcEv.el.querySelector('.fc-event-title');
+    if (titleEl) titleEl.textContent = '✦ Drop here';
+  } else {
+    fcEv.el.classList.remove('fc-ghost-magnetic');
+    fcEv.el.classList.add('fc-ghost-suggestion');
+    const titleEl = fcEv.el.querySelector('.fc-event-title');
+    if (titleEl) titleEl.textContent = '✦ Suggested';
+  }
+}
+
+function setGhostMagnetic(active) {
+  if (isMagnetic === active) return;   // skip if already in correct state
+  _applyGhostClass(active);
+}
+
+// ── Magnetic detection during drag ───────────────────────────────
+// Compares cursor position against the ghost's bounding rect during every
+// mousemove.  Only active while draggingEventId is set.
+
+document.addEventListener('mousemove', e => {
+  if (!draggingEventId || !ghostSlot || !calendar) return;
+  const fcEv = calendar.getEventById(GHOST_ID);
+  if (!fcEv || !fcEv.el) return;
+
+  const rect = fcEv.el.getBoundingClientRect();
+  const inside =
+    e.clientX >= rect.left   - SNAP_THRESHOLD_PX &&
+    e.clientX <= rect.right  + SNAP_THRESHOLD_PX &&
+    e.clientY >= rect.top    - SNAP_THRESHOLD_PX &&
+    e.clientY <= rect.bottom + SNAP_THRESHOLD_PX;
+
+  setGhostMagnetic(inside);
+}, { passive: true });
+
+// (Ghost click is now handled by the FullCalendar eventClick callback above,
+//  since the ghost has pointer-events:auto and z-index:9999.)
+
+// ── Backend fetch ─────────────────────────────────────────────────
+
+/**
+ * Ask the C++ RBT for the earliest gap of `duration` minutes.
+ * Shows the ghost on success; removes it only if the server says no gap exists.
+ * This function deliberately does NOT remove the ghost at the start — the
+ * existing ghost stays visible while the request is in flight so there is
+ * no "blink" between the old and new suggestion.
+ */
+async function fetchAndShowGhost(duration, searchStart) {
+  const data = await apiFetch('POST', '/api/suggest', {
+    duration:    Math.trunc(duration),
+    searchStart: Math.trunc(searchStart),
+  });
+
+  if (!data || !data.found || !data.slot) {
+    removeGhost();
+    return;
+  }
+
+  showGhost(data.slot);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Time helpers
+// ═══════════════════════════════════════════════════════════════════
+function weekMinutesToDate(mins, monday) {
+  const d = new Date(monday);
+  d.setDate(d.getDate() + Math.floor(mins / MINS_PER_DAY));
+  d.setHours(0, 0, 0, 0);
+  d.setMinutes(mins % MINS_PER_DAY);
+  return d;
+}
+
+function getMondayOfWeek(now) {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay();
+  d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return d;
+}
+
+function fmtDuration(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
+
+function timeStrToWeekMins(dayIdx, timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return dayIdx * MINS_PER_DAY + h * 60 + m;
+}
+
+// Convert a FullCalendar Date to week-minutes offset from currentMonday
+function fcDateToWeekMins(d) {
+  const diff = d - currentMonday;                      // ms
+  return Math.round(diff / 60000);                     // to minutes
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// In-memory event store  (single source of truth for the UI)
+// Persisted to localStorage under LS_KEY_EVENTS.
+// Each record: { id, title, startTime, endTime, startLabel, endLabel, status }
+// ═══════════════════════════════════════════════════════════════════
+let events = loadEventsFromStorage();
+
+function loadEventsFromStorage() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY_EVENTS) || '[]'); }
+  catch { return []; }
+}
+function saveEventsToStorage() {
+  localStorage.setItem(LS_KEY_EVENTS, JSON.stringify(events));
+}
+
+function getEvent(id)       { return events.find(e => String(e.id) === String(id)); }
+function removeEvent(id)    { events = events.filter(e => String(e.id) !== String(id)); }
+function upsertEvent(ev)    {
+  const idx = events.findIndex(e => String(e.id) === String(ev.id));
+  if (idx >= 0) events[idx] = ev; else events.push(ev);
+}
+
+function nextId() {
+  const used = new Set(events.map(e => Number(e.id)));
+  let id = Date.now();
+  while (used.has(id)) id++;
+  return id;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Build a FullCalendar event object from our raw record
+// ═══════════════════════════════════════════════════════════════════
+function buildFCEvent(ev, monday) {
+  // isConflict ? RedStyle : GreenStyle — applyConflictStyles() toggles
+  // the .event-conflict class after every mutation, so we always build
+  // with the safe/green base here.
+  return {
+    id:              String(ev.id),
+    title:           ev.title,           // ⚠ prefix added by applyConflictStyles
+    start:           weekMinutesToDate(ev.startTime, monday),
+    end:             weekMinutesToDate(ev.endTime,   monday),
+    backgroundColor: EVENT_COLOR,
+    borderColor:     EVENT_COLOR,
+    textColor:       '#fff',
+    classNames:      [],
+    editable:        true,
+    extendedProps: {
+      rawTitle:    ev.title,
+      startLabel:  ev.startLabel || '',
+      endLabel:    ev.endLabel   || '',
+      durationMin: ev.endTime - ev.startTime,
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Conflict detection  (half-open intervals [start, end))
+// Returns a Set of IDs for every event involved in at least one overlap.
+// This is the single source of truth — replace with C++ RBT results
+// later by swapping this function's return value with the server payload.
+// ═══════════════════════════════════════════════════════════════════
+function detectConflicts(evList) {
+  const conflicting = new Set();
+  for (let i = 0; i < evList.length; i++) {
+    for (let j = i + 1; j < evList.length; j++) {
+      const a = evList[i], b = evList[j];
+      if (a.startTime < b.endTime && b.startTime < a.endTime) {
+        conflicting.add(String(a.id));
+        conflicting.add(String(b.id));
+      }
+    }
+  }
+  return conflicting;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// applyConflictStyles  — offline JS fallback (O(n²) overlap check)
+// Used when the server hasn't responded yet or is unreachable.
+// Does NOT call syncStatsFromServer to avoid creating an async race.
+// upsertAndAudit() and syncStatsFromServer() are the server paths that
+// call applyConflictStylesFromServer() — never call it from here.
+// ═══════════════════════════════════════════════════════════════════
+function applyConflictStyles() {
+  if (!calendar) return;
+  const conflicting = detectConflicts(events);
+
+  // Write is_conflicting onto local array (offline fallback path)
+  events.forEach(ev => { ev.is_conflicting = conflicting.has(String(ev.id)); });
+
+  calendar.getEvents().forEach(fcEv => {
+    if (fcEv.extendedProps.isGhost) return;
+
+    const isConflict = conflicting.has(String(fcEv.id));
+    const rawTitle   = fcEv.extendedProps.rawTitle || fcEv.title.replace(/^⚠ /, '');
+
+    if (isConflict) {
+      fcEv.setProp('backgroundColor', 'rgba(239,68,68,0.40)');
+      fcEv.setProp('borderColor',     'rgba(239,68,68,0.70)');
+      fcEv.setProp('textColor',       '#f87171');
+    } else {
+      fcEv.setProp('backgroundColor', EVENT_COLOR);
+      fcEv.setProp('borderColor',     EVENT_COLOR);
+      fcEv.setProp('textColor',       '#ffffff');
+    }
+
+    const wantedTitle = isConflict ? '⚠ ' + rawTitle : rawTitle;
+    if (fcEv.title !== wantedTitle) fcEv.setProp('title', wantedTitle);
+
+    fcEv.setExtendedProp('isConflict', isConflict);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Statistics  (local fast path — immediately reflects local array)
+// The server sync inside applyConflictStyles() will overwrite the
+// conflict count with the authoritative C++ value moments later.
+// ═══════════════════════════════════════════════════════════════════
+function updateStats() {
+  const totalMins = events.reduce((s, e) => s + Math.max(0, e.endTime - e.startTime), 0);
+  // Derive conflict count from the is_conflicting flag written by mergeServerFlags.
+  // This is the single source of truth — if the blocks aren't red, this is 0.
+  const conflictCount = events.filter(e => e.is_conflicting).length;
+
+  document.getElementById('stat-total').textContent     = events.length;
+  document.getElementById('stat-conflicts').textContent = conflictCount;
+  document.getElementById('stat-busy').textContent      = events.length ? fmtDuration(totalMins) : '0h';
+
+  const dayMins = Array(7).fill(0);
+  events.forEach(e => {
+    const d = Math.floor(e.startTime / MINS_PER_DAY);
+    if (d >= 0 && d < 7) dayMins[d] += Math.max(0, e.endTime - e.startTime);
+  });
+  const maxMins = Math.max(...dayMins);
+  document.getElementById('stat-day').textContent =
+    events.length && maxMins > 0 ? DAY_NAMES[dayMins.indexOf(maxMins)] : '—';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Full calendar re-render
+// ═══════════════════════════════════════════════════════════════════
+function refreshCalendar() {
+  if (!calendar) return;
+  // Snapshot ghost before removeAllEvents wipes it
+  const savedGhost = ghostSlot;
+  calendar.removeAllEvents();
+  events.forEach(ev => calendar.addEvent(buildFCEvent(ev, currentMonday)));
+  updateStats();
+  applyConflictStyles();  // fast local pass; server override follows inside it
+  // Restore ghost if one was showing before the re-render
+  if (savedGhost) showGhost(savedGhost);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Toast notifications
+// ═══════════════════════════════════════════════════════════════════
+function toast(msg, type = 'info') {
+  const colors = { success: '#34d399', conflict: '#f87171', info: '#7c83fd', warn: '#fbbf24' };
+  const dot    = colors[type] || colors.info;
+
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="toast-dot" style="background:${dot}"></span>${msg}`;
+  document.getElementById('toast-container').appendChild(el);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => el.classList.add('show'));
+  });
+
+  setTimeout(() => {
+    el.classList.add('leave');
+    el.addEventListener('transitionend', () => el.remove(), { once: true });
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Hover tooltip
+// ═══════════════════════════════════════════════════════════════════
+const tooltip   = document.getElementById('tooltip');
+const ttTitle   = document.getElementById('tt-title');
+const ttStart   = document.getElementById('tt-start');
+const ttEnd     = document.getElementById('tt-end');
+const ttDur     = document.getElementById('tt-dur');
+const ttBadge   = document.getElementById('tt-badge');
+
+document.addEventListener('mousemove', e => {
+  if (!tooltip.classList.contains('hidden')) {
+    const off = 14;
+    let left = e.clientX + off, top = e.clientY + off;
+    if (left + 240 > window.innerWidth)  left = e.clientX - 240 - off;
+    if (top  + 140 > window.innerHeight) top  = e.clientY - 140 - off;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
+  }
+});
+
+function showTooltip(info) {
+  const ep = info.event.extendedProps;
+  // Ghost block has pointer-events:none so this shouldn't fire, but guard anyway
+  if (ep.isGhost) return;
+  ttTitle.textContent = ep.rawTitle || info.event.title.replace(/^⚠\s/, '');
+  ttStart.textContent = `Start: ${ep.startLabel || info.event.startStr}`;
+  ttEnd.textContent   = `End:   ${ep.endLabel   || info.event.endStr}`;
+  ttDur.textContent   = `Duration: ${fmtDuration(ep.durationMin)}`;
+  ttBadge.textContent = '⚠ Scheduling Conflict Detected';
+  ttBadge.classList.toggle('hidden', !ep.isConflict);
+  tooltip.classList.remove('hidden');
+}
+function hideTooltip() { tooltip.classList.add('hidden'); }
+
+// ═══════════════════════════════════════════════════════════════════
+// Context menu
+// ═══════════════════════════════════════════════════════════════════
+const ctxMenu = document.getElementById('ctx-menu');
+let ctxTargetId = null;
+
+function openCtxMenu(x, y, eventId) {
+  ctxTargetId = String(eventId);
+  const menuW = 160, menuH = 130;
+  const left  = Math.min(x, window.innerWidth  - menuW - 8);
+  const top   = Math.min(y, window.innerHeight - menuH - 8);
+  ctxMenu.style.left = left + 'px';
+  ctxMenu.style.top  = top  + 'px';
+  ctxMenu.classList.add('open');
+}
+function closeCtxMenu() {
+  ctxMenu.classList.remove('open');
+  ctxTargetId = null;
+}
+
+document.addEventListener('click',       closeCtxMenu);
+document.addEventListener('contextmenu', e => { if (!ctxMenu.contains(e.target)) closeCtxMenu(); });
+document.addEventListener('keydown',     e => { if (e.key === 'Escape') closeCtxMenu(); });
+
+document.getElementById('ctx-remove').addEventListener('click', () => {
+  if (!ctxTargetId) return;
+  deleteEvent(ctxTargetId);
+  closeCtxMenu();
+});
+
+document.getElementById('ctx-duplicate').addEventListener('click', () => {
+  if (!ctxTargetId) return;
+  const src = getEvent(ctxTargetId);
+  if (!src) return;
+  const copy = { ...src, id: nextId(), title: src.title + ' (copy)' };
+  upsertEvent(copy);
+  saveEventsToStorage();
+  refreshCalendar();       // local render + fast JS conflict pass
+  upsertAndAudit(copy);    // authoritative C++ audit
+  toast(`Duplicated "${src.title}"`, 'info');
+  closeCtxMenu();
+});
+
+document.getElementById('ctx-edit').addEventListener('click', () => {
+  if (!ctxTargetId) return;
+  openEditModal(ctxTargetId);
+  closeCtxMenu();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Edit modal
+// ═══════════════════════════════════════════════════════════════════
+const editOverlay = document.getElementById('edit-overlay');
+const editError   = document.getElementById('edit-error');
+let   editTargetId = null;
+
+function openEditModal(id) {
+  const ev = getEvent(id);
+  if (!ev) return;
+  editTargetId = String(id);
+
+  const dayIdx = Math.floor(ev.startTime / MINS_PER_DAY);
+  const startM = ev.startTime % MINS_PER_DAY;
+  const endM   = ev.endTime   % MINS_PER_DAY;
+  const pad    = n => String(n).padStart(2, '0');
+
+  document.getElementById('e-title').value = ev.title;
+  document.getElementById('e-day').value   = String(dayIdx);
+  document.getElementById('e-start').value = `${pad(Math.floor(startM/60))}:${pad(startM%60)}`;
+  document.getElementById('e-end').value   = `${pad(Math.floor(endM/60))}:${pad(endM%60)}`;
+  editError.classList.add('hidden');
+  editOverlay.classList.remove('modal-hidden');
+  document.getElementById('e-title').focus();
+}
+function closeEditModal() {
+  editOverlay.classList.add('modal-hidden');
+  editTargetId = null;
+}
+
+document.getElementById('edit-close').addEventListener('click',  closeEditModal);
+document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+editOverlay.addEventListener('click', e => { if (e.target === editOverlay) closeEditModal(); });
+
+document.getElementById('edit-form').addEventListener('submit', e => {
+  e.preventDefault();
+  editError.classList.add('hidden');
+
+  const title    = document.getElementById('e-title').value.trim();
+  const dayIdx   = parseInt(document.getElementById('e-day').value, 10);
+  const startStr = document.getElementById('e-start').value;
+  const endStr   = document.getElementById('e-end').value;
+
+  if (!title)    { editError.textContent = 'Title required.'; editError.classList.remove('hidden'); return; }
+  const startMins = timeStrToWeekMins(dayIdx, startStr);
+  const endMins   = timeStrToWeekMins(dayIdx, endStr);
+  if (endMins <= startMins) { editError.textContent = 'End must be after start.'; editError.classList.remove('hidden'); return; }
+
+  const dayName = DAY_NAMES[dayIdx];
+  const ev = getEvent(editTargetId);
+  if (!ev) return;
+
+  ev.title      = title;
+  ev.startTime  = startMins;
+  ev.endTime    = endMins;
+  ev.startLabel = `${dayName} ${startStr}`;
+  ev.endLabel   = `${dayName} ${endStr}`;
+
+  saveEventsToStorage();
+  refreshCalendar();    // local render + fast JS conflict pass
+  upsertAndAudit(ev);  // authoritative C++ audit
+  toast(`"${title}" updated`, 'info');
+  closeEditModal();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Delete event (with fade-out animation on the FC block)
+// ═══════════════════════════════════════════════════════════════════
+function deleteEvent(id) {
+  const ev    = getEvent(id);
+  const title = ev ? ev.title : 'Event';
+
+  // Fade out the FC block optimistically before the network round-trip
+  const fcEv = calendar && calendar.getEventById(String(id));
+  if (fcEv) {
+    const el = fcEv.el;
+    if (el) {
+      el.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      el.style.opacity    = '0';
+      el.style.transform  = 'scale(0.92)';
+      setTimeout(() => fcEv.remove(), 260);
+    } else {
+      fcEv.remove();
+    }
+  }
+
+  removeEvent(id);
+  saveEventsToStorage();
+
+  // Immediately repaint with local JS fallback so the counter drops at once
+  updateStats();
+  applyConflictStyles();
+  removeGhost();
+
+  // Server DELETE now returns { ok, allConflictIds, stats } — use it as the
+  // authoritative repaint so any events that were ONLY conflicting because
+  // of this deleted event revert to green immediately.
+  apiFetch('DELETE', `/api/events/${Number(id)}`).then(data => {
+    if (data && data.allConflictIds !== undefined) {
+      updateRbtLatency(data.latency_us);
+      applyConflictStylesFromServer(data.allConflictIds, data.stats, data.events || null);
+    } else {
+      syncStatsFromServer();
+    }
+  });
+
+  toast(`"${title}" removed`, 'warn');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FullCalendar initialisation
+// ═══════════════════════════════════════════════════════════════════
+let calendar;
+let currentMonday = getMondayOfWeek(new Date());
+
+function initCalendar() {
+  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView:   'timeGridWeek',
+    firstDay:      1,
+    headerToolbar: { left: 'prev,next', center: 'title', right: 'timeGridWeek,timeGridDay' },
+    height:        '100%',
+    allDaySlot:    false,
+    slotMinTime:   '00:00:00',
+    slotMaxTime:   '24:00:00',
+    slotDuration:  '00:30:00',
+    scrollTime:    '00:00:00',
+    expandRows:    false,
+    nowIndicator:  true,
+    initialDate:   currentMonday,
+
+    // ── Drag, drop, resize ─────────────────────────────────────
+    editable:        true,
+    eventDurationEditable: true,
+
+    // ── eventDragStart ────────────────────────────────────────────
+    // Record which event is in flight so the mousemove handler can
+    // run magnetic detection against the ghost block.
+    eventDragStart: info => {
+      if (info.event.extendedProps.isGhost) return;
+      draggingEventId = info.event.id;
+    },
+
+    // ── eventDragStop ────────────────────────────────────────────
+    // Fires when the mouse button is released, whether or not the
+    // drop was valid.  eventDrop (if it fires) runs synchronously
+    // BEFORE eventDragStop in FullCalendar v6, so by the time we
+    // arrive here eventDrop has already committed the new position
+    // and decided whether to keep or remove the ghost.
+    //
+    // We must NOT touch the ghost here — doing so would destroy a
+    // newly created suggestion that fetchAndShowGhost just placed.
+    // The ONLY job of this handler is to reset the drag tracking
+    // state and the magnetic visual.  Ghost cleanup is the
+    // responsibility of eventDrop (on success) and the user
+    // navigating away (datesSet) or explicit actions.
+    //
+    // Cancelled drag (no eventDrop): FullCalendar reverts the event
+    // to its original slot and we leave the ghost in place so the
+    // user can see the suggestion even after cancelling.
+    eventDragStop: info => {
+      if (info.event.extendedProps.isGhost) return;
+      draggingEventId = null;
+      // Reset the magnetic glow without removing the ghost itself
+      if (isMagnetic) _applyGhostClass(false);
+    },
+
+    // ── eventDrop ────────────────────────────────────────────────
+    eventDrop: info => {
+      const { event, revert } = info;
+      const ev = getEvent(event.id);
+      if (!ev) { revert(); return; }
+      if (String(event.id) === GHOST_ID) { revert(); return; }
+
+      let newStart = fcDateToWeekMins(event.start);
+      const dur    = ev.endTime - ev.startTime;
+
+      // ── Magnetic snap ─────────────────────────────────────────
+      // Snap if:
+      //   A) cursor was inside the ghost rect when mouse was released, OR
+      //   B) dropped position is within SNAP_THRESHOLD_MINS of the suggestion
+      const shouldSnap = ghostSlot && (
+        isMagnetic ||
+        Math.abs(newStart - ghostSlot.startTime) <= SNAP_THRESHOLD_MINS
+      );
+
+      if (shouldSnap) {
+        newStart = ghostSlot.startTime;
+        event.setStart(weekMinutesToDate(ghostSlot.startTime, currentMonday));
+        event.setEnd  (weekMinutesToDate(ghostSlot.startTime + dur, currentMonday));
+        // Ghost is consumed — remove it now
+        removeGhost();
+
+        if (event.el) {
+          event.el.classList.add('snap-flash');
+          event.el.addEventListener('animationend',
+            () => event.el && event.el.classList.remove('snap-flash'),
+            { once: true });
+        }
+        toast(`"${ev.title}" snapped to suggested slot ✦`, 'success');
+      } else {
+        // Non-snap drop: clear the stale suggestion.
+        // fetchAndShowGhost (called inside upsertAndAudit) will create a
+        // fresh one if the new position still conflicts.
+        removeGhost();
+      }
+
+      const newEnd = newStart + dur;
+      if (newStart < 0 || newEnd > MINS_PER_WEEK) {
+        revert(); toast('Event outside week range.', 'conflict'); return;
+      }
+
+      const dayIdx   = Math.floor(newStart / MINS_PER_DAY);
+      const startMin = newStart % MINS_PER_DAY;
+      const endMin   = newEnd   % MINS_PER_DAY;
+      const pad      = n => String(n).padStart(2, '0');
+
+      ev.startTime  = newStart;
+      ev.endTime    = newEnd;
+      ev.startLabel = `${DAY_NAMES[dayIdx]} ${pad(Math.floor(startMin/60))}:${pad(startMin%60)}`;
+      ev.endLabel   = `${DAY_NAMES[Math.floor(newEnd/MINS_PER_DAY)]} ${pad(Math.floor(endMin/60))}:${pad(endMin%60)}`;
+      event.setExtendedProp('rawTitle', ev.title);
+      saveEventsToStorage();
+
+      updateStats();
+      applyConflictStyles();
+
+      // upsertAndAudit calls fetchAndShowGhost when the new position conflicts
+      upsertAndAudit(ev).then(() => {
+        if (!ghostSlot) toast(`"${ev.title}" rescheduled`, 'info');
+      });
+    },
+
+    eventResizeStart: info => {
+      if (info.event.extendedProps.isGhost) return;
+      // Hide ghost while user is resizing — its time slot is now stale
+      removeGhost();
+    },
+
+    eventResize: info => {
+      const { event, revert } = info;
+      const ev = getEvent(event.id);
+      if (!ev) { revert(); return; }
+
+      const newStart = fcDateToWeekMins(event.start);
+      const newEnd   = fcDateToWeekMins(event.end);
+
+      if (newEnd <= newStart || newEnd > MINS_PER_WEEK) { revert(); return; }
+
+      const dayIdx   = Math.floor(newStart / MINS_PER_DAY);
+      const startMin = newStart % MINS_PER_DAY;
+      const endMin   = newEnd   % MINS_PER_DAY;
+      const pad      = n => String(n).padStart(2, '0');
+
+      // Update local state first (optimistic)
+      ev.startTime  = newStart;
+      ev.endTime    = newEnd;
+      ev.startLabel = `${DAY_NAMES[dayIdx]} ${pad(Math.floor(startMin/60))}:${pad(startMin%60)}`;
+      ev.endLabel   = `${DAY_NAMES[Math.floor(newEnd/MINS_PER_DAY)]} ${pad(Math.floor(endMin/60))}:${pad(endMin%60)}`;
+      saveEventsToStorage();
+      event.setExtendedProp('durationMin', newEnd - newStart);
+
+      // Fast local conflict pass (offline fallback)
+      updateStats();
+      applyConflictStyles();
+
+      // Single round-trip: upsert + full conflict scan → repaint all blocks
+      upsertAndAudit(ev);
+
+      toast(`"${ev.title}" resized`, 'info');
+    },
+
+    // ── Ghost click → snap event to suggested slot ──────────────
+    // With pointer-events:auto on the ghost, FullCalendar fires
+    // eventClick normally — no rect-check needed.
+    eventClick: info => {
+      const { event } = info;
+      if (!event.extendedProps.isGhost) return;  // only handle ghost clicks
+
+      if (!ghostSlot || !ghostForEventId) return;
+
+      const ev = getEvent(ghostForEventId);
+      if (!ev) { removeGhost(); return; }
+
+      const dur      = ev.endTime - ev.startTime;
+      const newStart = ghostSlot.startTime;
+      const newEnd   = newStart + dur;
+      const dayIdx   = Math.floor(newStart / MINS_PER_DAY);
+      const startMin = newStart % MINS_PER_DAY;
+      const endMin   = newEnd   % MINS_PER_DAY;
+      const pad      = n => String(n).padStart(2, '0');
+
+      ev.startTime  = newStart;
+      ev.endTime    = newEnd;
+      ev.startLabel = `${DAY_NAMES[dayIdx]} ${pad(Math.floor(startMin/60))}:${pad(startMin%60)}`;
+      ev.endLabel   = `${DAY_NAMES[Math.floor(newEnd/MINS_PER_DAY)]} ${pad(Math.floor(endMin/60))}:${pad(endMin%60)}`;
+
+      saveEventsToStorage();
+      removeGhost();
+      refreshCalendar();
+
+      // Flash snap animation once the DOM element is mounted
+      setTimeout(() => {
+        const fcEv = calendar.getEventById(String(ev.id));
+        if (fcEv && fcEv.el) {
+          fcEv.el.classList.add('snap-flash');
+          fcEv.el.addEventListener('animationend',
+            () => fcEv.el && fcEv.el.classList.remove('snap-flash'), { once: true });
+        }
+      }, 30);
+
+      toast(`"${ev.title}" snapped to suggested slot ✦`, 'success');
+      upsertAndAudit(ev);
+    },
+
+    // ── Context menu ────────────────────────────────────────────
+    eventDidMount: info => {
+      if (info.event.extendedProps.isGhost) return;
+      info.el.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        hideTooltip();
+        openCtxMenu(e.clientX, e.clientY, info.event.id);
+      });
+    },
+
+    eventMouseEnter: showTooltip,
+    eventMouseLeave: hideTooltip,
+
+    datesSet: info => {
+      const label = info.start.toLocaleDateString('en-GB',
+        { day: 'numeric', month: 'short', year: 'numeric' });
+      document.getElementById('week-label').textContent = 'Week of ' + label;
+      currentMonday = getMondayOfWeek(info.start);
+      // Ghost position is week-relative; clear all ghost state on navigation
+      ghostSlot = null; ghostForEventId = null; isMagnetic = false;
+      refreshCalendar();
+    },
+  });
+  calendar.render();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Add-event form
+// ═══════════════════════════════════════════════════════════════════
+const addForm   = document.getElementById('add-event-form');
+const formError = document.getElementById('form-error');
+const btnAdd    = document.getElementById('btn-add-event');
+
+function showFormError(msg) {
+  formError.textContent = msg;
+  formError.classList.remove('hidden');
+  addForm.classList.add('shake');
+  addForm.addEventListener('animationend', () => addForm.classList.remove('shake'), { once: true });
+}
+
+addForm.addEventListener('submit', e => {
+  e.preventDefault();
+  formError.classList.add('hidden');
+
+  const title    = document.getElementById('f-title').value.trim();
+  const dayIdx   = parseInt(document.getElementById('f-day').value, 10);
+  const startStr = document.getElementById('f-start').value;
+  const endStr   = document.getElementById('f-end').value;
+
+  if (!title)               { showFormError('Title is required.'); return; }
+  if (!startStr || !endStr) { showFormError('Fill in both times.'); return; }
+
+  const startMins = timeStrToWeekMins(dayIdx, startStr);
+  const endMins   = timeStrToWeekMins(dayIdx, endStr);
+  if (endMins <= startMins)    { showFormError('End must be after start.'); return; }
+  if (endMins > MINS_PER_WEEK) { showFormError('End time exceeds week boundary.'); return; }
+
+  const dayName = DAY_NAMES[dayIdx];
+  const newEvent = {
+    id:         nextId(),
+    title,
+    startTime:  startMins,
+    endTime:    endMins,
+    startLabel: `${dayName} ${startStr}`,
+    endLabel:   `${dayName} ${endStr}`,
+  };
+
+  upsertEvent(newEvent);
+  saveEventsToStorage();
+
+  // Add to calendar immediately (optimistic — show green)
+  calendar.addEvent(buildFCEvent(newEvent, currentMonday));
+  updateStats();
+  applyConflictStyles();   // fast offline pass
+
+  // Single round-trip: upsert into C++ tree + full conflict scan
+  upsertAndAudit(newEvent);
+
+  btnAdd.classList.add('pulse-ok');
+  btnAdd.addEventListener('animationend', () => btnAdd.classList.remove('pulse-ok'), { once: true });
+
+  // Full form reset to defaults
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-day').value   = '0';   // Monday
+  document.getElementById('f-start').value = '00:00';
+  document.getElementById('f-end').value   = '00:00';
+  document.getElementById('f-title').focus();
+
+  toast(`"${title}" added`, 'info');
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Clear-all confirm modal
+// ═══════════════════════════════════════════════════════════════════
+const confirmOverlay = document.getElementById('confirm-overlay');
+
+function openConfirmModal()  { confirmOverlay.classList.remove('modal-hidden'); }
+function closeConfirmModal() { confirmOverlay.classList.add('modal-hidden'); }
+
+document.getElementById('btn-clear-all').addEventListener('click', openConfirmModal);
+document.getElementById('confirm-cancel').addEventListener('click', closeConfirmModal);
+confirmOverlay.addEventListener('click', e => { if (e.target === confirmOverlay) closeConfirmModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirmModal(); });
+
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  events = [];
+  saveEventsToStorage();
+  ghostSlot  = null;
+  isMagnetic = false;
+  calendar.removeAllEvents();  // also removes the ghost FC event
+  // Update UI immediately with zeroed stats
+  applyConflictStylesFromServer([], { total: 0, conflicts: 0, busyMinutes: 0 });
+  apiFetch('DELETE', '/api/events');   // fire-and-forget; tree+DB are cleared
+  closeConfirmModal();
+  toast('All events cleared', 'warn');
+});
+
+document.getElementById('btn-today').addEventListener('click', () => {
+  calendar.changeView('timeGridDay');
+  calendar.today();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Undo  (Cmd+Z on Mac, Ctrl+Z on Win/Linux)
+// ═══════════════════════════════════════════════════════════════════
+async function applyUndo() {
+  const data = await apiFetch('POST', '/api/undo');
+  if (!data) { toast('Server unreachable', 'warn'); return; }
+
+  if (!data.ok) {
+    toast('Nothing to undo', 'warn');
+    return;
+  }
+
+  // Rebuild local events array from the server's authoritative snapshot
+  events = (data.events || []).map(ev => ({
+    id:        String(ev.id),
+    title:     ev.title,
+    startTime: ev.startTime,
+    endTime:   ev.endTime,
+    is_conflicting: !!ev.is_conflicting,
+  }));
+  saveEventsToStorage();
+
+  // Remove any lingering ghost block from before the undo
+  removeGhost();
+
+  // Re-render the calendar and repaint conflict colours
+  refreshCalendar();
+  applyConflictStylesFromServer(
+    data.allConflictIds || [],
+    data.stats          || null,
+    data.events         || null,
+  );
+
+  // Update the latency counter
+  updateRbtLatency(data.latency_us);
+
+  toast(`Undone — ${data.restoredCount} event(s) restored`, 'ok');
+}
+
+document.addEventListener('keydown', e => {
+  // Cmd+Z (Mac) or Ctrl+Z (Win/Linux); skip when typing in an input
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    const tag = (document.activeElement || {}).tagName || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    e.preventDefault();
+    applyUndo();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Boot
+// ═══════════════════════════════════════════════════════════════════
+// Initialise Lucide icons (context menu, add button)
+if (window.lucide) lucide.createIcons();
+
+initCalendar();
+if (events.length) refreshCalendar();
+
+// Seed the C++ RBT with the events persisted in localStorage so the
+// server-side conflict engine is in sync with the browser's state.
+// After seeding, pull the authoritative stats once.
+seedServerFromStorage(events).then(() => {
+  if (events.length) syncStatsFromServer();
+});
+</script>
+</body>
+</html>
