@@ -1,8 +1,11 @@
 # Weekly Event Scheduler
 
 A specialized full-stack scheduling system featuring a **C++ Interval-Augmented Red-Black Tree** core, exposed via a **Node.js Native Addon**, and monitored with **microsecond-level precision**.
+
 Live Demo:
+
 Frontend → https://qingya012.github.io/rbt-scheduler/
+
 Backend API → https://rbt-scheduler.onrender.com/
 
 
