@@ -15,17 +15,29 @@ FetchContent_Declare(
   GIT_TAG v1.17.0
 )
 
-# nlohmann/json (header-only JSON library)
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.3
-)
+# nlohmann/json — prefer the vendored single-header; fall back to FetchContent
+set(NLOHMANN_VENDORED "${CMAKE_SOURCE_DIR}/cpp/third_party/nlohmann/json.hpp")
+if(EXISTS "${NLOHMANN_VENDORED}")
+  message(STATUS "nlohmann/json: using vendored copy at cpp/third_party/")
+  add_library(nlohmann_json INTERFACE)
+  add_library(nlohmann_json::nlohmann_json ALIAS nlohmann_json)
+  target_include_directories(nlohmann_json INTERFACE
+    "${CMAKE_SOURCE_DIR}/cpp/third_party"
+  )
+else()
+  message(STATUS "nlohmann/json: vendored copy not found, fetching via FetchContent")
+  FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+  )
+  FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
 # Avoid overriding parent project settings on MSVC; harmless elsewhere.
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(googletest nlohmann_json)
+FetchContent_MakeAvailable(googletest)
 
 add_library(rbt_scheduler_lib
   cpp/src/Scheduler.cpp

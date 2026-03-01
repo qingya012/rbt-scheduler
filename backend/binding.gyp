@@ -8,6 +8,7 @@
       ],
       "include_dirs": [
         "../cpp/include",
+        "../cpp/third_party",
         "../build/_deps/nlohmann_json-src/single_include",
         "<!@(node -p \"require('node-addon-api').include\")"
       ],
