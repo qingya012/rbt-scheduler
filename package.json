@@ -4,12 +4,15 @@
   "description": "RBT Scheduler — C++ Interval Tree with Node.js addon bridge",
   "main": "bridge.js",
   "scripts": {
-    "build":   "node-gyp configure && node-gyp build",
+    "build": "node-gyp configure && node-gyp build",
     "rebuild": "node-gyp configure && node-gyp build",
-    "clean":   "node-gyp clean",
-    "start":   "node watch.js"
+    "clean": "node-gyp clean",
+    "start": "node server.js",
+    "restart": "kill $(lsof -t -i:3000) 2>/dev/null; sleep 0.3; node server.js",
+    "watch": "node watch.js"
   },
   "dependencies": {
+    "better-sqlite3": "^12.6.2",
     "node-addon-api": "^8.3.0"
   },
   "devDependencies": {

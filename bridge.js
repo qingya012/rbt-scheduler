@@ -86,6 +86,32 @@ function insertEvent(ev) {
 }
 
 /**
+ * Insert an event into the RBT even if it overlaps others (allowOverlap=true).
+ * Used when we want the event in the tree for conflict detection purposes
+ * regardless of whether it collides.
+ *
+ * @param {{ id: number, title: string, startTime: number, endTime: number }} ev
+ * @returns {{ ok: boolean, error?: string }}
+ */
+function forceInsertEvent(ev) {
+  if (!ev || typeof ev !== 'object')
+    throw new TypeError('forceInsertEvent: argument must be an event object');
+
+  const { id = 0, title = '', startTime, endTime } = ev;
+  assertInt('startTime', startTime);
+  assertInt('endTime',   endTime);
+
+  if (!_native) return { ok: true, _fallback: true };
+
+  return _native.forceInsertEvent(
+    Math.trunc(id),
+    String(title),
+    Math.trunc(startTime),
+    Math.trunc(endTime)
+  );
+}
+
+/**
  * Remove an event from the RBT by its numeric id.
  *
  * @param {number} id
@@ -117,6 +143,22 @@ function checkConflict(startTime, endTime) {
 }
 
 /**
+ * Find the earliest time slot that fits durationMinutes, starting the
+ * search at searchStart (week-minutes, default 0).
+ *
+ * Uses the RBT's ordered structure: O(log n + k) where k = returned gaps.
+ *
+ * @param {number} durationMinutes   required slot length (minutes)
+ * @param {number} [searchStart=0]   week-minute offset to begin searching
+ * @returns {{ found: boolean, startTime: number, endTime: number }}
+ */
+function findFirstFreeSlot(durationMinutes, searchStart = 0) {
+  assertInt('durationMinutes', durationMinutes);
+  if (!_native) return { found: false, startTime: -1, endTime: -1, _fallback: true };
+  return _native.findFirstFreeSlot(Math.trunc(durationMinutes), Math.trunc(searchStart));
+}
+
+/**
  * Remove all events from the tree.
  */
 function clearTree() {
@@ -136,8 +178,10 @@ function getAll() {
 // ── Module exports ────────────────────────────────────────────────
 module.exports = {
   insertEvent,
+  forceInsertEvent,
   deleteEvent,
   checkConflict,
+  findFirstFreeSlot,
   clearTree,
   getAll,
 
