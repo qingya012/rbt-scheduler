@@ -1,33 +1,34 @@
-# Weekly Event Scheduler (C++)
+# Weekly Event Scheduler
 
-A **weekly event scheduler core** implemented in **C++**, built around a **Red-Black Tree with interval augmentation**.
-
-This project focuses on the **core scheduling logic**—event ordering, conflict detection, rescheduling, and time-slot queries—while intentionally staying independent of any UI or calendar platform.  
-
-The scheduler is designed as a reusable engine that could later be wrapped by a CLI, UI, or calendar plugin, without modifying its core logic.
-
+A specialized full-stack scheduling system featuring a **C++ Interval-Augmented Red-Black Tree** core, exposed via a **Node.js Native Addon**, and monitored with **microsecond-level precision**.
+Live Demo:
+Frontend → https://qingya012.github.io/rbt-scheduler/
+Backend API → https://rbt-scheduler.onrender.com/
 
 
-## Scope
 
-The scheduler operates within a **single weekly time window**:
-- Time range: one week (e.g. Monday 00:00 → Sunday 24:00)
+## Architecture
+```
+C++ Core (Interval RB-Tree)
+        ↓
+Node.js Native Addon (node-gyp)
+        ↓
+Express REST API
+        ↓
+Frontend (GitHub Pages)
+```
+
+The scheduling engine is implemented in pure C++ for performance and correctness.
+It is wrapped using a Node native addon, allowing it to be exposed through a REST API and accessed from a browser-based UI.
+
+
+
+## Core Scheduling Engine (C++)
+
+The scheduler operates within a single weekly time window:
+- Time range: Monday 00:00 → Sunday 24:00
 - Time granularity: minutes
-- Single user, no persistence across weeks
-
-This constrained scope keeps the system predictable and allows the core logic to remain clean and testable.
-
-
-
-## Core Features
-
-- Add, remove, and reschedule weekly events
-- Detect overlapping events efficiently
-- Search events by time or time range
-- Duplicate weekly events with conflict awareness
-- Suggest available time slots given a desired duration
-
-All operations are implemented with clear performance guarantees.
+- Single user scope
 
 
 
@@ -49,6 +50,7 @@ This avoids ambiguity when events touch but do not overlap.
 
 
 ## Data Structure Design
+
 
 ### Red-Black Tree
 
@@ -88,17 +90,59 @@ This augmentation enables efficient overlap detection and interval queries witho
 
 
 
-## Design Philosophy
+## 🌐 REST API Layer
 
-- **Core-only**: The scheduler contains no UI, file I/O, or platform-specific logic.
-- **Plugin-friendly**: All inputs and outputs are structured data, making it easy to wrap the core with a CLI, UI, or calendar adapter.
-- **Not locked-in**: The design avoids assumptions about frontend, storage, or calendar providers.
+The C++ engine is exposed through a Node.js native addon and wrapped with an Express API.
+
+Example endpoints:
+
+```
+GET /health
+POST /addEvent
+POST /removeEvent
+GET /events
+```
+
+The backend is deployed on Render.
 
 
 
-## Possible Extensions
+## 🖥 Frontend
 
-- CLI wrapper for interactive scheduling
-- Import/export via standard calendar formats (e.g. `.ics`)
-- REST API adapter for frontend integration
-- Multi-week or recurring schedule support
+The frontend is a lightweight static interface deployed via GitHub Pages.
+
+It communicates with the deployed backend using fetch-based REST calls.
+
+
+
+## 🧪 Testing
+
+The C++ core is tested using:
+
+- CMake
+- GoogleTest
+
+This ensures correctness of:
+
+- Tree balancing
+- Interval augmentation
+- Conflict detection logic
+
+
+
+## 🎯 Design Goals
+
+- Separation of concerns (core vs API vs UI)
+- Native performance with web accessibility
+- Plugin-ready scheduling engine
+- Clear complexity guarantees
+
+
+
+## 🔮 Possible Extensions
+
+- Multi-week scheduling
+- Recurring events
+- Calendar import/export (.ics)
+- Multi-user support
+- Database persistence
