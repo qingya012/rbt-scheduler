@@ -25,7 +25,7 @@ const { execFile } = require('child_process');
 // ── Config ────────────────────────────────────────────────────────
 const PORT        = 3000;
 const DATA_FILE   = path.resolve(__dirname, '../data.json');
-const INDEX_FILE  = path.resolve(__dirname, '../frontend/index.html');
+const INDEX_FILE  = path.resolve(__dirname, '../docs/index.html');
 // Resolve the C++ binary relative to this script's directory
 const CPP_BINARY  = path.resolve(__dirname, '../build', 'scheduler');
 

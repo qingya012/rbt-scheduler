@@ -55,7 +55,7 @@ const portArg    = process.argv.indexOf('--port');
 const PORT       = portArg !== -1
   ? parseInt(process.argv[portArg + 1], 10)
   : (parseInt(process.env.PORT, 10) || 3000);
-const INDEX_FILE = path.resolve(__dirname, '../frontend/index.html');
+const INDEX_FILE = path.resolve(__dirname, '../docs/index.html');
 const DB_FILE    = path.resolve(__dirname, 'scheduler.db');
 
 // ── Validation constants ────────────────────────────────────────────
