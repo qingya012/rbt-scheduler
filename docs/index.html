@@ -1109,12 +1109,18 @@ document.addEventListener('mousemove', e => {
 
 function showTooltip(info) {
   const ep = info.event.extendedProps;
+  const ev = info.event;
   // Ghost block has pointer-events:none so this shouldn't fire, but guard anyway
   if (ep.isGhost) return;
-  ttTitle.textContent = ep.rawTitle || info.event.title.replace(/^⚠\s/, '');
-  ttStart.textContent = `Start: ${ep.startLabel || info.event.startStr}`;
-  ttEnd.textContent   = `End:   ${ep.endLabel   || info.event.endStr}`;
-  ttDur.textContent   = `Duration: ${fmtDuration(ep.durationMin)}`;
+  ttTitle.textContent = ep.rawTitle || ev.title.replace(/^⚠\s/, '');
+  // Use extendedProps (kept in sync on drop/resize) so tooltip shows current times after reschedule
+  ttStart.textContent = `Start: ${ep.startLabel || ev.startStr}`;
+  ttEnd.textContent   = `End:   ${ep.endLabel   || ev.endStr}`;
+  // Prefer live duration from event dates so tooltip is correct even if something else mutates times
+  const durationMin = (ev.start && ev.end)
+    ? Math.round((ev.end - ev.start) / 60000)
+    : (ep.durationMin ?? 0);
+  ttDur.textContent   = `Duration: ${fmtDuration(durationMin)}`;
   ttBadge.textContent = '⚠ Scheduling Conflict Detected';
   ttBadge.classList.toggle('hidden', !ep.isConflict);
   tooltip.classList.remove('hidden');
@@ -1391,6 +1397,9 @@ function initCalendar() {
       ev.startLabel = `${DAY_NAMES[dayIdx]} ${pad(Math.floor(startMin/60))}:${pad(startMin%60)}`;
       ev.endLabel   = `${DAY_NAMES[Math.floor(newEnd/MINS_PER_DAY)]} ${pad(Math.floor(endMin/60))}:${pad(endMin%60)}`;
       event.setExtendedProp('rawTitle', ev.title);
+      event.setExtendedProp('startLabel', ev.startLabel);
+      event.setExtendedProp('endLabel', ev.endLabel);
+      event.setExtendedProp('durationMin', ev.endTime - ev.startTime);
       saveEventsToStorage();
 
       updateStats();
@@ -1430,6 +1439,8 @@ function initCalendar() {
       ev.endLabel   = `${DAY_NAMES[Math.floor(newEnd/MINS_PER_DAY)]} ${pad(Math.floor(endMin/60))}:${pad(endMin%60)}`;
       saveEventsToStorage();
       event.setExtendedProp('durationMin', newEnd - newStart);
+      event.setExtendedProp('startLabel', ev.startLabel);
+      event.setExtendedProp('endLabel', ev.endLabel);
 
       // Fast local conflict pass (offline fallback)
       updateStats();
