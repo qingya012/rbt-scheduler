@@ -110,15 +110,15 @@ The backend is deployed on Render.
 
 
 
-## 🖥 Frontend
+## Frontend
 
-The frontend is a lightweight static interface deployed via GitHub Pages.
+Accelerated by Cursor (AI Code Editor). I leveraged AI to handle repetitive UI components and state synchronization, allowing me to focus on the complex data structures and system architecture.
 
-It communicates with the deployed backend using fetch-based REST calls.
+The frontend is a lightweight static interface deployed via GitHub Pages. It communicates with the deployed backend using fetch-based REST calls.
 
 
 
-## 🧪 Testing
+## Testing
 
 The C++ core is tested using:
 
@@ -133,7 +133,7 @@ This ensures correctness of:
 
 
 
-## 🎯 Design Goals
+## Design Goals
 
 - Separation of concerns (core vs API vs UI)
 - Native performance with web accessibility
@@ -142,7 +142,7 @@ This ensures correctness of:
 
 
 
-## 🔮 Possible Extensions
+## Possible Extensions
 
 - Multi-week scheduling
 - Recurring events
